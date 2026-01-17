@@ -1,0 +1,388 @@
+import { useState } from "react";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Textarea } from "./ui/textarea";
+import { Badge } from "./ui/badge";
+import { 
+  User, 
+  Briefcase, 
+  GraduationCap,
+  Linkedin,
+  Github,
+  Globe,
+  Sparkles
+} from "lucide-react";
+import { motion } from "motion/react";
+import { toast } from "sonner";
+
+interface ProfileSetupProps {
+  userId: string;
+  userEmail: string;
+  onComplete: (profileData: any) => void;
+}
+
+export function ProfileSetup({ userId, userEmail, onComplete }: ProfileSetupProps) {
+  const [step, setStep] = useState<"role" | "details">("role");
+  const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Common fields
+  const [name, setName] = useState("");
+  
+  // Mentor-specific fields
+  const [expertise, setExpertise] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [bio, setBio] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [githubUrl, setGithubUrl] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  
+  // Mentee-specific fields
+  const [interests, setInterests] = useState("");
+  const [currentRole, setCurrentRole] = useState("");
+  const [goals, setGoals] = useState("");
+
+  const handleRoleSelection = (role: "mentor" | "mentee") => {
+    setUserType(role);
+    setStep("details");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Validation
+    if (!name) {
+      toast.error("Please enter your full name");
+      return;
+    }
+
+    if (userType === "mentor") {
+      if (!expertise || !yearsExperience || !bio) {
+        toast.error("Please fill in all required mentor fields");
+        return;
+      }
+    } else {
+      if (!interests || !currentRole || !goals) {
+        toast.error("Please fill in all required mentee fields");
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    try {
+      // Prepare profile data
+      const profileData: any = {
+        id: userId,
+        email: userEmail,
+        name,
+        role: userType,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=FFD700&color=000000`,
+        profileCompleted: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      // Add role-specific fields
+      if (userType === "mentor") {
+        profileData.expertise = expertise.split(",").map((e: string) => e.trim()).filter((e: string) => e);
+        profileData.yearsExperience = parseInt(yearsExperience) || 0;
+        profileData.bio = bio;
+        if (linkedinUrl) profileData.linkedin = linkedinUrl;
+        if (githubUrl) profileData.github = githubUrl;
+        if (websiteUrl) profileData.website = websiteUrl;
+      } else {
+        profileData.interests = interests.split(",").map((i: string) => i.trim()).filter((i: string) => i);
+        profileData.currentRole = currentRole;
+        profileData.goals = goals;
+      }
+
+      // Call the onComplete callback with the profile data
+      if (typeof onComplete === 'function') {
+        await onComplete(profileData);
+      }
+      
+      // Show success message
+      toast.success("Profile setup completed!", {
+        description: `Welcome to Topvoice.lk, ${name}!`
+      });
+    } catch (error: any) {
+      console.error("Profile setup error:", error);
+      toast.error("Failed to complete profile setup", {
+        description: error.message || "Please try again"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-black/5 dark:from-black dark:via-gray-900 dark:to-yellow-900/10 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-3xl"
+      >
+        <Card className="overflow-hidden shadow-2xl border-2 border-primary/20">
+          <div className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-black p-8 text-black">
+            <Badge className="mb-4 bg-black text-yellow-400 hover:bg-black/90">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Topvoice.lk
+            </Badge>
+            
+            <h1 className="mb-2 text-3xl">
+              Complete Your Profile
+            </h1>
+            
+            <p className="text-black/80">
+              {step === "role" 
+                ? "First, tell us about yourself" 
+                : `Let's set up your ${userType} profile`}
+            </p>
+          </div>
+
+          <div className="p-8 bg-white dark:bg-card">
+            {step === "role" ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="mb-4 text-xl">I am a</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleRoleSelection("mentee")}
+                      className="p-6 border-2 border-border rounded-lg hover:border-primary transition-colors text-left"
+                    >
+                      <GraduationCap className="w-12 h-12 mb-4 text-primary" />
+                      <h3 className="mb-2">Mentee</h3>
+                      <p className="text-sm text-muted-foreground">
+                        I'm looking for guidance and mentorship to grow my career
+                      </p>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleRoleSelection("mentor")}
+                      className="p-6 border-2 border-border rounded-lg hover:border-primary transition-colors text-left"
+                    >
+                      <Briefcase className="w-12 h-12 mb-4 text-primary" />
+                      <h3 className="mb-2">Mentor</h3>
+                      <p className="text-sm text-muted-foreground">
+                        I want to share my expertise and help others succeed
+                      </p>
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="flex flex-col h-[500px]">
+                <motion.form
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onSubmit={handleSubmit}
+                  className="space-y-4 flex-1 overflow-y-auto pr-2"
+                >
+                  {/* Common Field - Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="name"
+                        type="text"
+                        placeholder="John Doe"
+                        className="pl-10"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mentor-specific fields */}
+                  {userType === "mentor" && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <h3 className="mb-4 text-sm">Mentor Profile</h3>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="expertise">Area of Expertise *</Label>
+                        <Input
+                          id="expertise"
+                          type="text"
+                          placeholder="e.g., Full Stack Development, Data Science"
+                          value={expertise}
+                          onChange={(e) => setExpertise(e.target.value)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Separate multiple areas with commas
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="years-experience">Years of Experience *</Label>
+                        <Input
+                          id="years-experience"
+                          type="number"
+                          placeholder="e.g., 5"
+                          value={yearsExperience}
+                          onChange={(e) => setYearsExperience(e.target.value)}
+                          required
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bio">Professional Bio *</Label>
+                        <Textarea
+                          id="bio"
+                          placeholder="Tell us about your experience and what you can offer as a mentor..."
+                          rows={4}
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="linkedin">LinkedIn Profile</Label>
+                        <div className="relative">
+                          <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="linkedin"
+                            type="url"
+                            placeholder="https://linkedin.com/in/yourprofile"
+                            className="pl-10"
+                            value={linkedinUrl}
+                            onChange={(e) => setLinkedinUrl(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="github">GitHub Profile</Label>
+                        <div className="relative">
+                          <Github className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="github"
+                            type="url"
+                            placeholder="https://github.com/yourusername"
+                            className="pl-10"
+                            value={githubUrl}
+                            onChange={(e) => setGithubUrl(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="website">Personal Website</Label>
+                        <div className="relative">
+                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="website"
+                            type="url"
+                            placeholder="https://yourwebsite.com"
+                            className="pl-10"
+                            value={websiteUrl}
+                            onChange={(e) => setWebsiteUrl(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Mentee-specific fields */}
+                  {userType === "mentee" && (
+                    <>
+                      <div className="border-t pt-4 mt-4">
+                        <h3 className="mb-4 text-sm">Mentee Profile</h3>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="interests">Areas of Interest *</Label>
+                        <Input
+                          id="interests"
+                          type="text"
+                          placeholder="e.g., Web Development, Machine Learning"
+                          value={interests}
+                          onChange={(e) => setInterests(e.target.value)}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Separate multiple interests with commas
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="current-role">Current Role/Status *</Label>
+                        <Input
+                          id="current-role"
+                          type="text"
+                          placeholder="e.g., Junior Developer, Student, Career Switcher"
+                          value={currentRole}
+                          onChange={(e) => setCurrentRole(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="goals">Your Goals *</Label>
+                        <Textarea
+                          id="goals"
+                          placeholder="What do you hope to achieve with mentorship?"
+                          rows={4}
+                          value={goals}
+                          onChange={(e) => setGoals(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
+                </motion.form>
+                
+                <div className="sticky bottom-0 bg-white dark:bg-card pt-4 border-t">
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStep("role")}
+                      className="w-full"
+                    >
+                      Back
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      className="w-full" 
+                      disabled={isLoading}
+                      onClick={(e: React.MouseEvent) => {
+                        e.preventDefault();
+                        const form = document.querySelector('form');
+                        if (form) {
+                          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                        }
+                      }}
+                    >
+                      {isLoading ? "Setting up..." : "Complete Profile"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    By completing your profile, you agree to our Terms of Service and Privacy Policy
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      </motion.div>
+    </div>
+  );
+}
