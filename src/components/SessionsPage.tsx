@@ -6,7 +6,7 @@ import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Search, Calendar, Clock, Users, Video, MapPin, Monitor, Building2, Inbox } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { MySessionRequests } from "./MySessionRequests";
 import { JoinSessionDialog, JoinSessionFormData } from "./JoinSessionDialog";
 
@@ -37,23 +37,36 @@ interface SessionRequest {
   id: string;
   sessionId: number;
   userId: string;
+  userName?: string;
+  userEmail?: string;
+  userAvatar?: string;
   status: "pending" | "accepted" | "rejected";
+  requestedAt: string;
+  updatedAt: string;
+  // Additional form data
+  phone?: string;
+  occupation?: string;
+  experienceLevel?: string;
+  reasonToJoin?: string;
+  expectations?: string;
 }
+
+import { UserProfile } from "../services/supabaseService";
 
 interface SessionsPageProps {
   sessions: Session[];
   onRequestToJoin: (sessionId: number | string, formData?: any) => void;
-  userRole: "mentor" | "mentee" | null;
+  userRole: UserProfile['role'] | null;
   currentUserId?: string;
   sessionRequests: SessionRequest[];
 }
 
-export function SessionsPage({ 
-  sessions, 
-  onRequestToJoin, 
-  userRole, 
+export function SessionsPage({
+  sessions,
+  onRequestToJoin,
+  userRole,
   currentUserId,
-  sessionRequests 
+  sessionRequests
 }: SessionsPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
@@ -81,7 +94,7 @@ export function SessionsPage({
 
   const handleJoinDialogSubmit = (formData: JoinSessionFormData) => {
     if (!selectedSession) return;
-    
+
     onRequestToJoin(selectedSession.id, {
       phone: formData.phone,
       occupation: formData.occupation,
@@ -98,7 +111,7 @@ export function SessionsPage({
     );
   };
 
-  const myRequests = currentUserId 
+  const myRequests = currentUserId
     ? sessionRequests.filter(r => r.userId === currentUserId)
     : [];
 
@@ -133,141 +146,141 @@ export function SessionsPage({
             </div>
           </div>
 
-      {filteredSessions.length === 0 ? (
-        <Card className="p-12 text-center">
-          <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-            <Video className="w-10 h-10 text-muted-foreground" />
-          </div>
-          <h3 className="mb-2">No sessions found</h3>
-          <p className="text-muted-foreground mb-4">
-            {searchQuery 
-              ? "Try adjusting your search or check back later for new sessions."
-              : "No tech sessions are currently scheduled. Check back soon!"}
-          </p>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredSessions.map((session) => (
-            <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  {session.companyName && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <Building2 className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">{session.companyName}</span>
-                    </div>
-                  )}
-                  <h3>{session.title}</h3>
-                </div>
-                <Badge variant={session.sessionType === "online" ? "default" : "secondary"}>
-                  {session.sessionType === "online" ? (
-                    <><Monitor className="w-3 h-3 mr-1" /> Online</>
-                  ) : (
-                    <><MapPin className="w-3 h-3 mr-1" /> Physical</>
-                  )}
-                </Badge>
+          {filteredSessions.length === 0 ? (
+            <Card className="p-12 text-center">
+              <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Video className="w-10 h-10 text-muted-foreground" />
               </div>
-              <p className="text-muted-foreground mb-4">{session.description}</p>
-
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground mb-2">
-                  {session.speakers.length > 1 ? `${session.speakers.length} Speakers` : "Speaker"}
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {session.speakers.map((speaker, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={speaker.avatar} />
-                        <AvatarFallback>
-                          {speaker.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{speaker.name}</p>
-                        {speaker.title && (
-                          <p className="text-xs text-muted-foreground truncate">{speaker.title}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>{session.date}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <span>{session.time}</span>
-                </div>
-              </div>
-
-              {session.sessionType === "physical" && session.location && (
-                <div className="flex items-center gap-2 text-sm mb-4">
-                  <MapPin className="w-4 h-4 text-muted-foreground" />
-                  <span>{session.location}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-sm mb-4">
-                <Users className="w-4 h-4 text-muted-foreground" />
-                <span>{session.attendees} registered • {session.availableSlots} slots available</span>
-              </div>
-
-              <div className="mb-4">
-                <div className="flex flex-wrap gap-2">
-                  {session.topics.map((topic, index) => (
-                    <Badge key={index} variant="outline">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-
-              {(() => {
-                const request = getRequestStatus(session.id);
-                if (request) {
-                  if (request.status === "pending") {
-                    return (
-                      <Button className="w-full" disabled variant="outline">
-                        <Clock className="w-4 h-4 mr-2" />
-                        Request Pending
-                      </Button>
-                    );
-                  } else if (request.status === "accepted") {
-                    return (
-                      <Button className="w-full" disabled variant="default">
-                        ✓ Accepted
-                      </Button>
-                    );
-                  } else if (request.status === "rejected") {
-                    return (
-                      <Button className="w-full" disabled variant="destructive">
-                        Request Rejected
-                      </Button>
-                    );
-                  }
-                }
-                return (
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleRequestToJoinSession(session)}
-                    disabled={session.availableSlots === 0}
-                  >
-                    {session.availableSlots === 0 ? "Session Full" : "Request to Join"}
-                  </Button>
-                );
-              })()}
+              <h3 className="mb-2">No sessions found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery
+                  ? "Try adjusting your search or check back later for new sessions."
+                  : "No tech sessions are currently scheduled. Check back soon!"}
+              </p>
             </Card>
-          ))}
-        </div>
-        )}
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {filteredSessions.map((session) => (
+                <Card key={session.id} className="p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      {session.companyName && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{session.companyName}</span>
+                        </div>
+                      )}
+                      <h3>{session.title}</h3>
+                    </div>
+                    <Badge variant={session.sessionType === "online" ? "default" : "secondary"}>
+                      {session.sessionType === "online" ? (
+                        <><Monitor className="w-3 h-3 mr-1" /> Online</>
+                      ) : (
+                        <><MapPin className="w-3 h-3 mr-1" /> Physical</>
+                      )}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground mb-4">{session.description}</p>
+
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {session.speakers.length > 1 ? `${session.speakers.length} Speakers` : "Speaker"}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {session.speakers.map((speaker, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <Avatar className="w-10 h-10">
+                            <AvatarImage src={speaker.avatar} />
+                            <AvatarFallback>
+                              {speaker.name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm truncate">{speaker.name}</p>
+                            {speaker.title && (
+                              <p className="text-xs text-muted-foreground truncate">{speaker.title}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <span>{session.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span>{session.time}</span>
+                    </div>
+                  </div>
+
+                  {session.sessionType === "physical" && session.location && (
+                    <div className="flex items-center gap-2 text-sm mb-4">
+                      <MapPin className="w-4 h-4 text-muted-foreground" />
+                      <span>{session.location}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 text-sm mb-4">
+                    <Users className="w-4 h-4 text-muted-foreground" />
+                    <span>{session.attendees} registered • {session.availableSlots} slots available</span>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex flex-wrap gap-2">
+                      {session.topics.map((topic, index) => (
+                        <Badge key={index} variant="outline">
+                          {topic}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const request = getRequestStatus(session.id);
+                    if (request) {
+                      if (request.status === "pending") {
+                        return (
+                          <Button className="w-full" disabled variant="outline">
+                            <Clock className="w-4 h-4 mr-2" />
+                            Request Pending
+                          </Button>
+                        );
+                      } else if (request.status === "accepted") {
+                        return (
+                          <Button className="w-full" disabled variant="default">
+                            ✓ Accepted
+                          </Button>
+                        );
+                      } else if (request.status === "rejected") {
+                        return (
+                          <Button className="w-full" disabled variant="destructive">
+                            Request Rejected
+                          </Button>
+                        );
+                      }
+                    }
+                    return (
+                      <Button
+                        className="w-full"
+                        onClick={() => handleRequestToJoinSession(session)}
+                        disabled={session.availableSlots === 0}
+                      >
+                        {session.availableSlots === 0 ? "Session Full" : "Request to Join"}
+                      </Button>
+                    );
+                  })()}
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="requests">
-          <MySessionRequests 
+          <MySessionRequests
             sessionRequests={myRequests}
             sessions={sessions}
           />

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -12,6 +12,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Plus, Edit, Trash2, Calendar, Award, Video, Users2, MapPin, Monitor, UserPlus, X, Inbox, Users } from "lucide-react";
 import { SessionRequestsManager } from "./SessionRequestsManager";
 import { SessionParticipants } from "./SessionParticipants";
+import { useAuth } from "../contexts/AuthContext";
+import { supabaseService } from "../services/supabaseService";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface Achievement {
   id: number;
@@ -42,6 +46,7 @@ interface Session {
   maxSlots?: number;
   availableSlots?: number;
   companyName?: string;
+  createdBy?: string;
 }
 
 interface VisitingExperience {
@@ -74,33 +79,85 @@ interface MentorDashboardProps {
   onRespondToRequest: (requestId: string, action: "accept" | "reject") => void;
 }
 
-export function MentorDashboard({ 
-  onAddSession, 
-  onDeleteSession, 
+
+export function MentorDashboard({
+  onAddSession,
+  onDeleteSession,
   sessions,
   sessionRequests,
   currentUserId,
-  onRespondToRequest 
+  onRespondToRequest
 }: MentorDashboardProps) {
-  // Mock current mentor info - in real app this would come from auth
-  const currentMentor = {
-    name: "Sarah Johnson",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop"
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Profile data state
+  const [profileData, setProfileData] = useState({
+    name: user?.name || "",
+    avatar: user?.avatar || "",
+    title: user?.currentRole || "",
+    company: user?.company || "",
+    location: "San Francisco, CA", // Default or could be added to schema
+    bio: user?.bio || "",
+    expertise: user?.expertise?.join(", ") || ""
+  });
+
+  // Update profile data when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || "",
+        avatar: user.avatar || "",
+        title: user.currentRole || "",
+        company: user.company || "",
+        location: "San Francisco, CA",
+        bio: user.bio || "",
+        expertise: user.expertise?.join(", ") || ""
+      });
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      const updates = {
+        name: profileData.name,
+        avatar: profileData.avatar,
+        currentRole: profileData.title,
+        company: profileData.company,
+        bio: profileData.bio,
+        expertise: profileData.expertise.split(",").map(i => i.trim()).filter(Boolean),
+      };
+
+      const result = await supabaseService.updateProfile(user.id, updates);
+      if (result) {
+        toast.success("Profile updated successfully");
+        await refreshUser();
+      }
+    } catch (error) {
+      console.error("Update profile error:", error);
+      toast.error("Failed to update profile");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const [achievements, setAchievements] = useState<Achievement[]>([
-    {
-      id: 1,
-      title: "AWS Solutions Architect - Professional",
-      description: "Achieved professional level certification in AWS cloud architecture",
-      date: "March 2024",
-      type: "Certification"
+  const [achievements, setAchievements] = useState<Achievement[]>(user?.achievements || []);
+
+  // Update achievements when user changes
+  useEffect(() => {
+    if (user?.achievements) {
+      setAchievements(user.achievements);
     }
-  ]);
+  }, [user]);
 
   // Filter sessions to show only those created by this mentor
-  const mentorSessions = sessions.filter(s => 
-    s.speakers.some(speaker => speaker.name === currentMentor.name)
+  const mentorSessions = sessions.filter(s =>
+    s.createdBy === user?.id || s.speakers.some(speaker => speaker.name === user?.name)
   );
 
   const [visitingExperiences, setVisitingExperiences] = useState<VisitingExperience[]>([
@@ -152,17 +209,30 @@ export function MentorDashboard({
   const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
   const [isAddExperienceOpen, setIsAddExperienceOpen] = useState(false);
 
-  const handleAddAchievement = () => {
-    if (newAchievement.title && newAchievement.description) {
-      setAchievements([
+  const handleAddAchievement = async () => {
+    if (newAchievement.title && newAchievement.description && user) {
+      const updatedAchievements = [
         ...achievements,
         {
           ...newAchievement,
-          id: achievements.length + 1
+          id: Date.now() // Use timestamp as ID for local/temp
         }
-      ]);
-      setNewAchievement({ title: "", description: "", date: "", type: "Certification" });
-      setIsAddAchievementOpen(false);
+      ];
+
+      try {
+        const result = await supabaseService.updateProfile(user.id, {
+          achievements: updatedAchievements
+        });
+        if (result) {
+          setAchievements(updatedAchievements);
+          toast.success("Achievement added successfully");
+          await refreshUser();
+          setNewAchievement({ title: "", description: "", date: "", type: "Certification" });
+          setIsAddAchievementOpen(false);
+        }
+      } catch (error) {
+        toast.error("Failed to add achievement");
+      }
     }
   };
 
@@ -181,13 +251,13 @@ export function MentorDashboard({
         maxSlots: parseInt(newSession.maxSlots) || 50,
         companyName: newSession.companyName || undefined
       });
-      setNewSession({ 
-        title: "", 
-        description: "", 
-        date: "", 
-        time: "", 
-        duration: "", 
-        topics: "", 
+      setNewSession({
+        title: "",
+        description: "",
+        date: "",
+        time: "",
+        duration: "",
+        topics: "",
         sessionType: "online",
         location: "",
         maxSlots: "50",
@@ -203,7 +273,7 @@ export function MentorDashboard({
       setSessionSpeakers([...sessionSpeakers, {
         name: newSpeaker.name,
         title: newSpeaker.title,
-        avatar: newSpeaker.avatar || currentMentor.avatar
+        avatar: newSpeaker.avatar || user?.avatar || ""
       }]);
       setNewSpeaker({ name: "", title: "", avatar: "" });
     }
@@ -214,11 +284,11 @@ export function MentorDashboard({
   };
 
   const handleAddCurrentMentorAsSpeaker = () => {
-    if (!sessionSpeakers.some(s => s.name === currentMentor.name)) {
+    if (user && !sessionSpeakers.some(s => s.name === user.name)) {
       setSessionSpeakers([...sessionSpeakers, {
-        name: currentMentor.name,
-        avatar: currentMentor.avatar,
-        title: "Senior Software Engineer"
+        name: user.name,
+        avatar: user.avatar || "",
+        title: user.currentRole || "Mentor"
       }]);
     }
   };
@@ -243,8 +313,22 @@ export function MentorDashboard({
     setVisitingExperiences(visitingExperiences.filter(e => e.id !== id));
   };
 
-  const handleDeleteAchievement = (id: number) => {
-    setAchievements(achievements.filter(a => a.id !== id));
+  const handleDeleteAchievement = async (id: number) => {
+    if (!user) return;
+    const updatedAchievements = achievements.filter(a => a.id !== id);
+
+    try {
+      const result = await supabaseService.updateProfile(user.id, {
+        achievements: updatedAchievements
+      });
+      if (result) {
+        setAchievements(updatedAchievements);
+        toast.success("Achievement deleted");
+        await refreshUser();
+      }
+    } catch (error) {
+      toast.error("Failed to delete achievement");
+    }
   };
 
   const handleDeleteSessionClick = (id: number) => {
@@ -282,44 +366,64 @@ export function MentorDashboard({
             <div className="space-y-6">
               <div className="flex items-center gap-6">
                 <Avatar className="w-24 h-24">
-                  <AvatarImage src={currentMentor.avatar} />
+                  <AvatarImage src={profileData.avatar} />
                   <AvatarFallback>
-                    {currentMentor.name.split(' ').map(n => n[0]).join('')}
+                    {profileData.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <Button variant="outline" size="sm">Change Photo</Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/profile-setup")}>Update Avatar</Button>
                   <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB</p>
                 </div>
               </div>
-              <div>
-                <Label>Full Name</Label>
-                <Input defaultValue="Sarah Johnson" />
-              </div>
-              <div>
-                <Label>Title</Label>
-                <Input defaultValue="Senior Software Engineer" />
-              </div>
-              <div>
-                <Label>Company</Label>
-                <Input defaultValue="Tech Corp" />
-              </div>
-              <div>
-                <Label>Location</Label>
-                <Input defaultValue="San Francisco, CA" />
-              </div>
-              <div>
-                <Label>Bio</Label>
-                <Textarea 
-                  defaultValue="Passionate software engineer with 10+ years of experience building scalable web applications."
-                  rows={4}
-                />
-              </div>
-              <div>
-                <Label>Expertise (comma-separated)</Label>
-                <Input defaultValue="React, TypeScript, System Design, Node.js, AWS" />
-              </div>
-              <Button>Save Changes</Button>
+              <form onSubmit={handleUpdateProfile} className="space-y-6">
+                <div>
+                  <Label>Full Name</Label>
+                  <Input
+                    value={profileData.name}
+                    onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={profileData.title}
+                    onChange={(e) => setProfileData({ ...profileData, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Company</Label>
+                  <Input
+                    value={profileData.company}
+                    onChange={(e) => setProfileData({ ...profileData, company: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Location</Label>
+                  <Input
+                    value={profileData.location}
+                    onChange={(e) => setProfileData({ ...profileData, location: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Bio</Label>
+                  <Textarea
+                    value={profileData.bio}
+                    onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <Label>Expertise (comma-separated)</Label>
+                  <Input
+                    value={profileData.expertise}
+                    onChange={(e) => setProfileData({ ...profileData, expertise: e.target.value })}
+                  />
+                </div>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </form>
             </div>
           </Card>
         </TabsContent>
@@ -452,14 +556,14 @@ export function MentorDashboard({
                       placeholder="e.g., TechCorp Inc."
                     />
                   </div>
-                  
+
                   {/* Speakers Section */}
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <div className="flex items-center justify-between mb-3">
                       <Label>Speakers ({sessionSpeakers.length})</Label>
-                      <Button 
+                      <Button
                         type="button"
-                        variant="outline" 
+                        variant="outline"
                         size="sm"
                         onClick={handleAddCurrentMentorAsSpeaker}
                       >
@@ -467,7 +571,7 @@ export function MentorDashboard({
                         Add Me
                       </Button>
                     </div>
-                    
+
                     {sessionSpeakers.length > 0 && (
                       <div className="space-y-2 mb-3">
                         {sessionSpeakers.map((speaker, idx) => (
@@ -552,8 +656,8 @@ export function MentorDashboard({
                   </div>
                   <div>
                     <Label>Session Type</Label>
-                    <Select 
-                      value={newSession.sessionType} 
+                    <Select
+                      value={newSession.sessionType}
                       onValueChange={(value: "online" | "physical") => setNewSession({ ...newSession, sessionType: value })}
                     >
                       <SelectTrigger>
@@ -590,10 +694,28 @@ export function MentorDashboard({
                       value={newSession.topics}
                       onChange={(e) => setNewSession({ ...newSession, topics: e.target.value })}
                       placeholder="e.g., React, Hooks, State Management"
+                      className="mb-2"
                     />
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {['React', 'Node.js', 'System Design', 'Cloud', 'AI', 'Career Hacks'].map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            const current = newSession.topics.split(',').map(t => t.trim()).filter(Boolean);
+                            if (!current.includes(tag)) {
+                              setNewSession({ ...newSession, topics: [...current, tag].join(', ') });
+                            }
+                          }}
+                          className="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary px-2 py-0.5 rounded-full transition-colors"
+                        >
+                          + {tag}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <Button 
-                    onClick={handleAddSessionClick} 
+                  <Button
+                    onClick={handleAddSessionClick}
                     className="w-full"
                     disabled={!newSession.title || !newSession.description || sessionSpeakers.length === 0}
                   >
@@ -626,81 +748,81 @@ export function MentorDashboard({
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {mentorSessions.map((session) => (
-              <Card key={session.id} className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="mb-2">{session.title}</h4>
-                    <div className="flex gap-2">
-                      <Badge variant={session.sessionType === "online" ? "default" : "secondary"}>
-                        {session.sessionType === "online" ? (
-                          <><Monitor className="w-3 h-3 mr-1" /> Online</>
-                        ) : (
-                          <><MapPin className="w-3 h-3 mr-1" /> Physical</>
+                <Card key={session.id} className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h4 className="mb-2">{session.title}</h4>
+                      <div className="flex gap-2">
+                        <Badge variant={session.sessionType === "online" ? "default" : "secondary"}>
+                          {session.sessionType === "online" ? (
+                            <><Monitor className="w-3 h-3 mr-1" /> Online</>
+                          ) : (
+                            <><MapPin className="w-3 h-3 mr-1" /> Physical</>
+                          )}
+                        </Badge>
+                        {session.companyName && (
+                          <Badge variant="outline">{session.companyName}</Badge>
                         )}
-                      </Badge>
-                      {session.companyName && (
-                        <Badge variant="outline">{session.companyName}</Badge>
-                      )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSessionClick(session.id)}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground mb-4 text-sm">{session.description}</p>
+
+                  {/* Speakers */}
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground mb-2">{session.speakers.length} Speaker{session.speakers.length > 1 ? 's' : ''}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {session.speakers.map((speaker, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={speaker.avatar} />
+                            <AvatarFallback className="text-xs">
+                              {speaker.name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs">{speaker.name}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteSessionClick(session.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mb-4 text-sm">{session.description}</p>
-                
-                {/* Speakers */}
-                <div className="mb-4">
-                  <p className="text-sm text-muted-foreground mb-2">{session.speakers.length} Speaker{session.speakers.length > 1 ? 's' : ''}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {session.speakers.map((speaker, idx) => (
-                      <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
-                        <Avatar className="w-6 h-6">
-                          <AvatarImage src={speaker.avatar} />
-                          <AvatarFallback className="text-xs">
-                            {speaker.name.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs">{speaker.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
-                    <p className="text-sm">{session.date} at {session.time}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                    <p className="text-sm">{session.duration}</p>
-                  </div>
-                </div>
 
-                {session.sessionType === "physical" && session.location && (
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-1">Location</p>
-                    <p className="text-sm">{session.location}</p>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
+                      <p className="text-sm">{session.date} at {session.time}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Duration</p>
+                      <p className="text-sm">{session.duration}</p>
+                    </div>
                   </div>
-                )}
 
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Topics</p>
-                  <div className="flex flex-wrap gap-2">
-                    {session.topics.map((topic, index) => (
-                      <Badge key={index} variant="secondary">
-                        {topic}
-                      </Badge>
-                    ))}
+                  {session.sessionType === "physical" && session.location && (
+                    <div className="mb-4">
+                      <p className="text-sm text-muted-foreground mb-1">Location</p>
+                      <p className="text-sm">{session.location}</p>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Topics</p>
+                    <div className="flex flex-wrap gap-2">
+                      {session.topics.map((topic, index) => (
+                        <Badge key={index} variant="secondary">
+                          {topic}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -821,7 +943,7 @@ export function MentorDashboard({
         </TabsContent>
 
         <TabsContent value="participants" className="mt-6">
-          <SessionParticipants 
+          <SessionParticipants
             sessionRequests={sessionRequests}
             sessions={sessions}
             currentUserId={currentUserId || ""}
@@ -829,7 +951,7 @@ export function MentorDashboard({
         </TabsContent>
 
         <TabsContent value="requests" className="mt-6">
-          <SessionRequestsManager 
+          <SessionRequestsManager
             sessionRequests={sessionRequests}
             sessions={sessions}
             currentUserId={currentUserId || ""}

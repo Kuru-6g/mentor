@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { MapPin, Award, Calendar, ExternalLink, ArrowLeft, Star, Video, Users, TrendingUp, MessageCircle, Briefcase } from "lucide-react";
 import { RequestMentorshipDialog } from "./RequestMentorshipDialog";
 import { HireMentorDialog } from "./HireMentorDialog";
+import { supabaseService, UserProfile } from "../services/supabaseService";
+import { Loader2 } from "lucide-react";
 
 interface Achievement {
   id: number;
@@ -27,7 +29,7 @@ interface Session {
 }
 
 interface MentorProfileProps {
-  mentorId: number;
+  mentorId: string;
   onBack: () => void;
 }
 
@@ -79,22 +81,46 @@ const mockSessions: Session[] = [
 export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
+  const [mentor, setMentor] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const mentor = {
-    name: "Sarah Johnson",
-    title: "Senior Software Engineer",
-    company: "Tech Corp",
-    location: "San Francisco, CA",
-    bio: "Passionate software engineer with 10+ years of experience building scalable web applications. I love mentoring and helping others grow in their careers. My expertise includes React, TypeScript, and system design.",
-    expertise: ["React", "TypeScript", "System Design", "Node.js", "AWS"],
-    experience: "10+ years",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
-    stats: {
-      totalSessions: 24,
-      totalMentees: 156,
-      averageRating: 4.8,
-      totalRatings: 89
+  useEffect(() => {
+    async function loadMentor() {
+      setIsLoading(true);
+      try {
+        const data = await supabaseService.getProfile(mentorId);
+        setMentor(data);
+      } catch (error) {
+        console.error("Failed to load mentor:", error);
+      } finally {
+        setIsLoading(false);
+      }
     }
+    loadMentor();
+  }, [mentorId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!mentor) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h2 className="mb-4">Mentor not found</h2>
+        <Button onClick={onBack}>Go Back</Button>
+      </div>
+    );
+  }
+
+  const stats = {
+    totalSessions: 0,
+    totalMentees: 0,
+    averageRating: 4.8, // Mock for now
+    totalRatings: 0
   };
 
   const reviews = [
@@ -146,18 +172,18 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
                 </AvatarFallback>
               </Avatar>
               <h2 className="mb-1">{mentor.name}</h2>
-              <p className="text-muted-foreground mb-2">{mentor.title}</p>
+              <p className="text-muted-foreground mb-2">{mentor.currentRole}</p>
               <p className="text-sm text-muted-foreground">{mentor.company}</p>
             </div>
 
             <div className="space-y-4 mb-6">
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span>{mentor.location}</span>
+                <span>{mentor.location || 'Remote'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Award className="w-4 h-4 text-muted-foreground" />
-                <span>{mentor.experience} experience</span>
+                <span>{mentor.yearsExperience || 0}+ years experience</span>
               </div>
             </div>
 
@@ -167,10 +193,10 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
                 <Star className="w-5 h-5 fill-primary text-primary" />
                 <div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold">{mentor.stats.averageRating}</span>
+                    <span className="text-2xl font-bold">{stats.averageRating}</span>
                     <span className="text-sm text-muted-foreground">/ 5.0</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{mentor.stats.totalRatings} ratings</p>
+                  <p className="text-xs text-muted-foreground">{stats.totalRatings} ratings</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/50">
@@ -179,14 +205,14 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
                     <Video className="w-3 h-3" />
                     <span className="text-xs">Sessions</span>
                   </div>
-                  <p className="font-semibold">{mentor.stats.totalSessions}</p>
+                  <p className="font-semibold">{stats.totalSessions}</p>
                 </div>
                 <div>
                   <div className="flex items-center gap-1 text-muted-foreground mb-1">
                     <Users className="w-3 h-3" />
                     <span className="text-xs">Mentees</span>
                   </div>
-                  <p className="font-semibold">{mentor.stats.totalMentees}</p>
+                  <p className="font-semibold">{stats.totalMentees}</p>
                 </div>
               </div>
             </Card>
@@ -194,7 +220,7 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
             <div className="mb-6">
               <p className="text-sm mb-3">Expertise</p>
               <div className="flex flex-wrap gap-2">
-                {mentor.expertise.map((skill, index) => (
+                {mentor.expertise?.map((skill, index) => (
                   <Badge key={index} variant="secondary">
                     {skill}
                   </Badge>
@@ -203,15 +229,15 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
             </div>
 
             <div className="space-y-3">
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 onClick={() => setShowRequestDialog(true)}
               >
                 <MessageCircle className="w-4 h-4 mr-2" />
                 Request Mentorship
               </Button>
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 variant="outline"
                 onClick={() => setShowHireDialog(true)}
               >
@@ -237,21 +263,27 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
             </TabsList>
 
             <TabsContent value="achievements" className="space-y-4 mt-6">
-              {mockAchievements.map((achievement) => (
-                <Card key={achievement.id} className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="mb-1">{achievement.title}</h4>
-                      <Badge variant="outline">{achievement.type}</Badge>
+              {mentor.achievements && mentor.achievements.length > 0 ? (
+                mentor.achievements.map((achievement, idx) => (
+                  <Card key={idx} className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="mb-1">{achievement.title}</h4>
+                        <Badge variant="outline">{achievement.type}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        {achievement.date}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      {achievement.date}
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground">{achievement.description}</p>
-                </Card>
-              ))}
+                    <p className="text-muted-foreground">{achievement.description}</p>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  No achievements listed yet.
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="sessions" className="space-y-4 mt-6">
@@ -259,7 +291,7 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
                 <Card key={session.id} className="p-6">
                   <h4 className="mb-2">{session.title}</h4>
                   <p className="text-muted-foreground mb-4">{session.description}</p>
-                  
+
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
@@ -305,8 +337,8 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
                         </div>
                         <div className="flex gap-1">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <Star 
-                              key={i} 
+                            <Star
+                              key={i}
                               className={`w-4 h-4 ${i < review.rating ? 'fill-primary text-primary' : 'text-muted-foreground'}`}
                             />
                           ))}

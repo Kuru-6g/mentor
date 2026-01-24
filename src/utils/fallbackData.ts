@@ -5,15 +5,80 @@
  * Useful for development and testing.
  */
 
-import { 
-  UserProfile, 
-  Mentor, 
-  Achievement, 
-  Session, 
-  SessionRequest,
-  Review,
-  BlogPost,
-} from './mongoApi';
+import { UserProfile } from '../services/supabaseService';
+
+export interface Mentor extends UserProfile {
+  rating?: number;
+  totalSessions?: number;
+  totalMentees?: number;
+}
+
+export interface Speaker {
+  name: string;
+  avatar: string;
+  title: string;
+}
+
+export interface Session {
+  id: string; // fallback uses string IDs often
+  title: string;
+  description: string;
+  createdBy: string;
+  speakers: Speaker[];
+  date: string;
+  time: string;
+  duration: string;
+  topics: string[];
+  sessionType: 'online' | 'physical';
+  maxSlots: number;
+  availableSlots: number;
+  attendees: number;
+  status: 'upcoming' | 'completed' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+  companyName?: string;
+  location?: string;
+}
+
+export interface SessionRequest {
+  id: string;
+  sessionId: string; // fallback uses string IDs
+  userId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt?: string; // fallback might use this
+  updatedAt?: string;
+}
+
+export interface Achievement {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  date: string;
+  category: 'certification' | 'award' | 'education' | 'experience';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Review {
+  id: string;
+  sessionId: string;
+  menteeId: string;
+  mentorId: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+export interface BlogPost {
+  id: string;
+  title: string;
+  content: string;
+  authorId: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
 
 // Check if we should use fallback data
 export const useFallbackData = () => {
@@ -195,7 +260,7 @@ class FallbackDataStore {
   updateUser(userId: string, data: Partial<UserProfile>): UserProfile | undefined {
     const user = this.users.get(userId);
     if (!user) return undefined;
-    
+
     const updated = { ...user, ...data, updatedAt: new Date().toISOString() };
     this.users.set(userId, updated);
     return updated;
@@ -224,7 +289,7 @@ class FallbackDataStore {
   updateSession(sessionId: string, data: Partial<Session>): Session | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
-    
+
     const updated = { ...session, ...data, updatedAt: new Date().toISOString() };
     this.sessions.set(sessionId, updated);
     return updated;
@@ -263,12 +328,12 @@ class FallbackDataStore {
   getSessionRequestsByMentor(mentorId: string): SessionRequest[] {
     const allRequests: SessionRequest[] = [];
     const mentorSessions = this.getSessionsByMentor(mentorId);
-    
+
     mentorSessions.forEach(session => {
       const requests = this.sessionRequests.get(session.id) || [];
       allRequests.push(...requests);
     });
-    
+
     return allRequests;
   }
 

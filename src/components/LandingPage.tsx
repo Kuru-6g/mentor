@@ -12,13 +12,20 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "./ui/carousel";
+import { useNavigate } from "react-router-dom";
+
+export interface Speaker {
+  name: string;
+  avatar: string;
+  title?: string;
+}
 
 interface Session {
   id: number;
   title: string;
   description: string;
-  mentorName: string;
-  mentorAvatar: string;
+  mentorName?: string;
+  mentorAvatar?: string;
   date: string;
   time: string;
   duration: string;
@@ -28,10 +35,11 @@ interface Session {
   location?: string;
   maxSlots?: number;
   availableSlots?: number;
+  companyName?: string;
+  speakers: Speaker[];
 }
 
 interface LandingPageProps {
-  onNavigate: (page: string) => void;
   sessions: Session[];
 }
 
@@ -75,7 +83,8 @@ const benefits = [
   "Flexible scheduling"
 ];
 
-export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
+export function LandingPage({ sessions }: LandingPageProps) {
+  const navigate = useNavigate();
   // Filter to get ongoing/upcoming sessions (simplified - in real app would compare with current date)
   const ongoingSessions = sessions.slice(0, 5);
 
@@ -87,13 +96,13 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
           backgroundSize: '40px 40px',
           backgroundImage: 'linear-gradient(to right, rgb(247 198 0 / 0.08) 1px, transparent 1px), linear-gradient(to bottom, rgb(247 198 0 / 0.08) 1px, transparent 1px)'
         }}></div>
-        
+
         {/* Animated gradient blobs */}
         <div className="absolute top-0 left-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        
+
         <div className="container mx-auto px-4 py-20 md:py-32 relative">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -103,22 +112,22 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
               <Sparkles className="w-4 h-4 mr-2" />
               Transform Your Tech Career
             </Badge>
-            
+
             <h1 className="mb-6 text-4xl md:text-6xl font-bold leading-tight">
               Connect with <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Expert Mentors</span> and Accelerate Your Growth
             </h1>
-            
+
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed">
-              Join thousands of professionals building meaningful connections. Get personalized mentorship, 
+              Join thousands of professionals building meaningful connections. Get personalized mentorship,
               attend exclusive tech sessions, and unlock your full potential.
             </p>
-            
+
             <div className="flex gap-4 justify-center flex-wrap">
-              <Button size="lg" onClick={() => onNavigate("mentors")} className="gap-2 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
+              <Button size="lg" onClick={() => navigate("/mentors")} className="gap-2 shadow-xl hover:shadow-2xl transition-all hover:scale-105">
                 Find a Mentor
                 <ArrowRight className="w-5 h-5" />
               </Button>
-              <Button size="lg" variant="outline" onClick={() => onNavigate("sessions")} className="gap-2 shadow-lg hover:shadow-xl">
+              <Button size="lg" variant="outline" onClick={() => navigate("/sessions")} className="gap-2 shadow-lg hover:shadow-xl">
                 <Video className="w-4 h-4" />
                 Browse Sessions
               </Button>
@@ -126,7 +135,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
           </motion.div>
 
           {/* Hero Image */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
@@ -144,7 +153,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
               <Card className="p-6 shadow-2xl border-2 border-primary/10 bg-card/95 backdrop-blur-sm">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   {stats.map((stat, index) => (
-                    <motion.div 
+                    <motion.div
                       key={index}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -196,7 +205,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
                         )}
                       </Badge>
                     </div>
-                    
+
                     {session.companyName && (
                       <Badge variant="outline" className="mb-2">
                         {session.companyName}
@@ -268,9 +277,9 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
                       </span>
                     </div>
 
-                    <Button 
-                      className="w-full" 
-                      onClick={() => onNavigate("sessions")}
+                    <Button
+                      className="w-full"
+                      onClick={() => navigate("/sessions")}
                       variant={session.availableSlots === 0 ? "outline" : "default"}
                     >
                       {session.availableSlots === 0 ? "View Details" : "Join Session"}
@@ -284,7 +293,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
           </Carousel>
 
           <div className="text-center mt-8">
-            <Button variant="outline" size="lg" onClick={() => onNavigate("sessions")}>
+            <Button variant="outline" size="lg" onClick={() => navigate("/sessions")}>
               View All Sessions
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
@@ -363,10 +372,10 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
               <Badge className="mb-4" variant="outline">Complete Platform</Badge>
               <h2 className="mb-4">Built for Mentors and Mentees</h2>
               <p className="text-muted-foreground mb-8">
-                Whether you're seeking guidance or sharing your expertise, Topvoice.lk provides 
+                Whether you're seeking guidance or sharing your expertise, Topvoice.lk provides
                 all the tools you need for meaningful connections and growth.
               </p>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
                 {benefits.map((benefit, index) => (
                   <div key={index} className="flex items-center gap-3">
@@ -376,7 +385,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
                 ))}
               </div>
 
-              <Button size="lg" onClick={() => onNavigate("mentors")}>
+              <Button size="lg" onClick={() => navigate("/mentors")}>
                 Get Started Today
               </Button>
             </motion.div>
@@ -461,7 +470,7 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
         <div className="absolute inset-0 bg-grid-white/[0.05]"></div>
-        
+
         <div className="container mx-auto px-4 py-20 relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -475,19 +484,19 @@ export function LandingPage({ onNavigate, sessions }: LandingPageProps) {
               Join thousands of professionals who are already growing with Topvoice.lk
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="secondary"
-                onClick={() => onNavigate("mentors")}
+                onClick={() => navigate("/mentors")}
                 className="gap-2 shadow-xl"
               >
                 Find Your Mentor
                 <ArrowRight className="w-4 h-4" />
               </Button>
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 variant="outline"
-                onClick={() => onNavigate("sessions")}
+                onClick={() => navigate("/sessions")}
                 className="gap-2 bg-white/10 text-white border-white/20 hover:bg-white/20"
               >
                 <Video className="w-4 h-4" />

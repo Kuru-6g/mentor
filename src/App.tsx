@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Header } from "./components/Header";
 import { LandingPage } from "./components/LandingPage";
 import { MentorDirectory } from "./components/MentorDirectory";
@@ -20,9 +20,14 @@ import { BlogPage } from "./components/BlogPage";
 import { CookiePage } from "./components/CookiePage";
 import { BackToTop } from "./components/BackToTop";
 import { Toaster, toast } from "sonner";
-import { initializeMockData } from "./utils/mockData";
-import { userAPI, UserProfile } from "./utils/mongoApi";
-import { createClient } from "./utils/supabaseClient";
+import { supabaseService, UserProfile } from "./services/supabaseService";
+import { supabase } from "./lib/supabaseClient";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PublicRoute } from "./components/PublicRoute";
+import { MenteeDashboard } from "./components/MenteeDashboard";
+import { BrowserRouter, useParams } from "react-router-dom";
+import ErrorBoundary from './components/ErrorBoundary';
 
 export interface Speaker {
   name: string;
@@ -36,7 +41,7 @@ export interface Session {
   description: string;
   speakers: Speaker[];
   // Legacy fields for backward compatibility
-  mentorName: string;
+  mentorName?: string;
   mentorAvatar?: string;
   date: string;
   time: string;
@@ -293,241 +298,68 @@ const initialSessions: Session[] = [
 ];
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<string>("home");
-  const [selectedMentorId, setSelectedMentorId] = useState<number | null>(null);
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [sessionRequests, setSessionRequests] = useState<SessionRequest[]>([]);
-  
-  // Auth state management
-  const [authState, setAuthState] = useState<"none" | "auth" | "profile-setup" | "authenticated">("none");
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
-  const [pendingUserEmail, setPendingUserEmail] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<"mentor" | "mentee" | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  // Initialize mock data on mount (for fallback mode)
+  // Initialize from database on mount
   useEffect(() => {
-    initializeMockData();
-    loadFromLocalStorage();
-    checkExistingAuth();
+    const loadInitialData = async () => {
+      try {
+        const [dbSessions, dbRequests] = await Promise.all([
+          supabaseService.getSessions(),
+          supabaseService.getSessionRequests()
+        ]);
+
+        if (dbSessions.length > 0) {
+          setSessions(dbSessions);
+        } else {
+          // If no sessions in DB yet, use initial sessions but don't save to localStorage
+          setSessions(initialSessions);
+        }
+
+        setSessionRequests(dbRequests);
+      } catch (error) {
+        console.error("Error loading initial data from database:", error);
+        setSessions(initialSessions);
+      }
+    };
+
+    loadInitialData();
   }, []);
 
-  // Check for existing authentication
-  const checkExistingAuth = async () => {
-    try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        // Try to get user profile from MongoDB
-        try {
-          const profile = await userAPI.getProfile(session.user.id);
-          
-          if (profile && profile.profileCompleted) {
-            setCurrentUser(profile);
-            setUserRole(profile.role);
-            setAuthState("authenticated");
-          } else {
-            // Profile not complete, show setup
-            setPendingUserId(session.user.id);
-            setPendingUserEmail(session.user.email!);
-            setAuthState("profile-setup");
-            setCurrentPage("profile-setup");
-          }
-        } catch (error) {
-          // Profile doesn't exist, show setup
-          setPendingUserId(session.user.id);
-          setPendingUserEmail(session.user.email!);
-          setAuthState("profile-setup");
-          setCurrentPage("profile-setup");
-        }
-      }
-    } catch (error) {
-      console.error("Error checking auth:", error);
-    }
-  };
+  const handleAddSession = async (
+    newSession: Omit<
+      Session,
+      "id" | "attendees" | "availableSlots" | "mentorName"
+    >,
+  ) => {
+    if (!user) return;
 
-  // Handle successful auth (signup or signin)
-  const handleAuthSuccess = async (userId: string, userEmail: string) => {
-    try {
-      // Try to get user profile from MongoDB
-      const profile = await userAPI.getProfile(userId);
-      
-      if (profile && profile.profileCompleted) {
-        // Profile exists and is complete
-        setCurrentUser(profile);
-        setUserRole(profile.role);
-        setAuthState("authenticated");
-        
-        // Redirect based on role
-        if (profile.role === "mentor") {
-          setCurrentPage("dashboard");
-        } else {
-          setCurrentPage("mentors");
-        }
-      } else {
-        // Profile doesn't exist or not complete, show setup
-        setPendingUserId(userId);
-        setPendingUserEmail(userEmail);
-        setAuthState("profile-setup");
-        setCurrentPage("profile-setup");
-      }
-    } catch (error) {
-      // Profile doesn't exist, show setup
-      console.log("Profile not found, showing setup:", error);
-      setPendingUserId(userId);
-      setPendingUserEmail(userEmail);
-      setAuthState("profile-setup");
-      setCurrentPage("profile-setup");
-    }
-  };
+    const sessionData = {
+      ...newSession,
+      mentor_name: user?.name,
+      mentor_avatar: user?.avatar,
+      attendees: 0,
+      available_slots: newSession.maxSlots,
+      created_by: user?.id,
+      // Map other fields to snake_case if necessary, or assume the service handles it
+      // Let's assume the DB expects snake_case based on common Supabase patterns
+    };
 
-  // Handle profile setup completion
-  const handleProfileSetupComplete = async (profileData: any) => {
-    try {
-      // Create profile in MongoDB
-      const profile = await userAPI.createProfile(profileData);
-      
-      setCurrentUser(profile);
-      setUserRole(profile.role);
-      setAuthState("authenticated");
-      setPendingUserId(null);
-      setPendingUserEmail(null);
-      
-      // Redirect based on role
-      if (profile.role === "mentor") {
-        setCurrentPage("dashboard");
-      } else {
-        setCurrentPage("mentors");
-      }
-      
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch (error: any) {
-      console.error("Error creating profile:", error);
-      toast.error("Failed to create profile", {
-        description: error.message
+    const createdSession = await supabaseService.createSession(sessionData);
+
+    if (createdSession) {
+      setSessions([createdSession, ...sessions]);
+      toast.success("Session created successfully!", {
+        description: "Your session is now visible to all users.",
       });
     }
   };
 
-  // Save data to localStorage whenever it changes (for fallback mode)
-  useEffect(() => {
-    saveToLocalStorage();
-  }, [sessions, sessionRequests]);
-
-  const loadFromLocalStorage = () => {
-    try {
-      const savedSessions = localStorage.getItem("sessions");
-      const savedRequests = localStorage.getItem("sessionRequests");
-
-      if (savedSessions) {
-        setSessions(JSON.parse(savedSessions));
-      } else {
-        // Use initial sessions if none saved
-        localStorage.setItem("sessions", JSON.stringify(initialSessions));
-      }
-
-      if (savedRequests) {
-        setSessionRequests(JSON.parse(savedRequests));
-      }
-    } catch (error) {
-      console.error("Error loading from localStorage:", error);
-    }
-  };
-
-  const saveToLocalStorage = () => {
-    try {
-      localStorage.setItem("sessions", JSON.stringify(sessions));
-      localStorage.setItem("sessionRequests", JSON.stringify(sessionRequests));
-    } catch (error) {
-      console.error("Error saving to localStorage:", error);
-    }
-  };
-
-  const handleNavigate = (page: string) => {
-    // Redirect to auth if trying to access sessions without login
-    if (page === "sessions" && authState !== "authenticated") {
-      setAuthState("auth");
-      setCurrentPage("auth");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-    setCurrentPage(page);
-    setSelectedMentorId(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  const handleSelectMentor = (mentorId: number) => {
-    // Redirect to auth if trying to view mentor profile without login
-    if (authState !== "authenticated") {
-      setSelectedMentorId(mentorId);
-      setAuthState("auth");
-      setCurrentPage("auth");
-      return;
-    }
-    setSelectedMentorId(mentorId);
-    setCurrentPage("mentor-profile");
-  };
-
-  const handleLogout = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      
-      setUserRole(null);
-      setCurrentUser(null);
-      setAuthState("none");
-      setCurrentPage("home");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      
-      toast.success("Logged out successfully");
-    } catch (error: any) {
-      console.error("Logout error:", error);
-      toast.error("Logout failed", { description: error.message });
-    }
-  };
-
-  const handleRoleChange = (
-    role: "mentor" | "mentee" | null,
-    user?: any
-  ) => {
-    if (role === null) {
-      handleLogout();
-    } else {
-      setUserRole(role);
-      setCurrentUser(user || null);
-      
-      if (role === "mentor") {
-        setCurrentPage("dashboard");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } else if (role === "mentee") {
-        setCurrentPage("mentors");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-    }
-  };
-
-  const handleAddSession = (
-    newSession: Omit<
-      Session,
-      "id" | "attendees" | "availableSlots"
-    >,
-  ) => {
-    const session: Session = {
-      id: Date.now(), // Use timestamp as ID
-      ...newSession,
-      attendees: 0,
-      availableSlots: newSession.maxSlots || 0,
-      createdBy: currentUser?.id || currentUser?.email,
-    };
-    
-    setSessions([session, ...sessions]);
-    toast.success("Session created successfully!", {
-      description: "Your session is now visible to all users.",
-    });
-  };
-
-  const handleRequestToJoinSession = (
+  const handleRequestToJoinSession = async (
     sessionId: number | string,
     formData?: {
       phone: string;
@@ -537,7 +369,7 @@ function AppContent() {
       expectations: string;
     }
   ) => {
-    if (!currentUser) {
+    if (!user) {
       toast.error("Please log in", {
         description: "You must be logged in to request to join a session"
       });
@@ -546,7 +378,7 @@ function AppContent() {
 
     // Check if already requested
     const existingRequest = sessionRequests.find(
-      r => r.sessionId === Number(sessionId) && r.userId === currentUser.id
+      r => r.sessionId === Number(sessionId) && r.userId === user.id
     );
 
     if (existingRequest) {
@@ -556,41 +388,43 @@ function AppContent() {
       return;
     }
 
-    // Create new request
-    const newRequest: SessionRequest = {
-      id: `${sessionId}-${currentUser.id}-${Date.now()}`,
-      sessionId: Number(sessionId),
-      userId: currentUser.id,
-      userName: currentUser.name,
-      userEmail: currentUser.email,
-      userAvatar: currentUser.avatar || "",
+    // Create new request in Supabase
+    const requestData = {
+      session_id: Number(sessionId),
+      user_id: user.id,
+      user_name: user.name,
+      user_email: user.email,
+      user_avatar: user.avatar || "",
       status: "pending",
-      requestedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
       ...(formData && {
         phone: formData.phone,
         occupation: formData.occupation,
-        experienceLevel: formData.experienceLevel,
-        reasonToJoin: formData.reasonToJoin,
+        experience_level: formData.experienceLevel,
+        reason_to_join: formData.reasonToJoin,
         expectations: formData.expectations,
       }),
     };
 
-    setSessionRequests([...sessionRequests, newRequest]);
-    
-    toast.success("Request sent successfully!", {
-      description: "The mentor will review your request."
-    });
+    const createdRequest = await supabaseService.createSessionRequest(requestData);
+
+    if (createdRequest) {
+      setSessionRequests([...sessionRequests, createdRequest]);
+      toast.success("Request sent successfully!", {
+        description: "The mentor will review your request."
+      });
+    }
   };
 
-  const handleDeleteSession = (sessionId: number | string) => {
-    setSessions(sessions.filter((s) => s.id !== sessionId));
-    // Also remove related requests
-    setSessionRequests(sessionRequests.filter(r => r.sessionId !== Number(sessionId)));
-    toast.success("Session deleted successfully");
+  const handleDeleteSession = async (sessionId: number | string) => {
+    const success = await supabaseService.deleteSession(sessionId);
+    if (success) {
+      setSessions(sessions.filter((s) => s.id !== sessionId));
+      setSessionRequests(sessionRequests.filter(r => r.sessionId !== Number(sessionId)));
+      toast.success("Session deleted successfully");
+    }
   };
 
-  const handleRespondToRequest = (
+  const handleRespondToRequest = async (
     requestId: string,
     action: "accept" | "reject"
   ) => {
@@ -600,133 +434,186 @@ function AppContent() {
     const session = sessions.find(s => s.id === request.sessionId);
     if (!session) return;
 
-    // Check if session is full when accepting
     if (action === "accept" && (session.availableSlots === undefined || session.availableSlots <= 0)) {
-      toast.error("Session is full", {
-        description: "This session has no available slots"
-      });
+      toast.error("Session is full");
       return;
     }
 
-    // Update request status
-    setSessionRequests(
-      sessionRequests.map(r =>
-        r.id === requestId
-          ? { ...r, status: action === "accept" ? "accepted" : "rejected", updatedAt: new Date().toISOString() }
-          : r
-      )
-    );
+    const updatedRequest = await supabaseService.updateSessionRequest(requestId, action === 'accept' ? 'accepted' : 'rejected');
 
-    // Update session if accepted
-    if (action === "accept") {
-      setSessions(
-        sessions.map(s =>
-          s.id === request.sessionId
-            ? {
-                ...s,
-                attendees: s.attendees + 1,
-                availableSlots: s.availableSlots! - 1,
-              }
-            : s
-        )
+    if (updatedRequest) {
+      setSessionRequests(
+        sessionRequests.map(r => r.id === requestId ? updatedRequest : r)
       );
 
-      toast.success("Request accepted!", {
-        description: "The student has been added to your session"
-      });
-    } else {
-      toast.success("Request rejected", {
-        description: "The student has been notified"
-      });
+      if (action === "accept") {
+        // Update session attendee count in DB
+        const sessionUpdate = {
+          attendees: (session.attendees || 0) + 1,
+          available_slots: (session.availableSlots || 1) - 1,
+        };
+        const updatedSession = await supabaseService.updateSession(request.sessionId, sessionUpdate);
+        if (updatedSession) {
+          setSessions(
+            sessions.map(s => s.id === request.sessionId ? updatedSession : s)
+          );
+        }
+      }
+
+      toast.success(action === "accept" ? "Request accepted!" : "Request rejected");
     }
   };
 
+  // Determine if header/footer should be shown
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/profile-setup';
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {currentPage !== "auth" && (
-        <Header
-          currentPage={currentPage}
-          onNavigate={handleNavigate}
-          userRole={userRole}
-          onRoleChange={handleRoleChange}
-        />
-      )}
+      {!isAuthPage && <Header />}
 
       <main className="flex-1">
-        {currentPage === "home" && (
-          <LandingPage
-            onNavigate={handleNavigate}
-            sessions={sessions}
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage sessions={sessions} />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/careers" element={<CareersPage onNavigate={(p) => navigate(`/${p}`)} />} />
+          <Route path="/help" element={<HelpPage onNavigate={(p) => navigate(`/${p}`)} />} />
+          <Route path="/community" element={<CommunityPage onNavigate={(p) => navigate(`/${p}`)} />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/cookies" element={<CookiePage />} />
+
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <AuthForm />
+              </PublicRoute>
+            }
           />
-        )}
-        {currentPage === "mentors" && (
-          <MentorDirectory
-            onSelectMentor={handleSelectMentor}
+          <Route
+            path="/signup"
+            element={
+              <PublicRoute>
+                <AuthForm />
+              </PublicRoute>
+            }
           />
-        )}
-        {currentPage === "mentor-profile" &&
-          selectedMentorId && (
-            <MentorProfile
-              mentorId={selectedMentorId}
-              onBack={() => handleNavigate("mentors")}
-            />
-          )}
-        {currentPage === "sessions" && userRole && (
-          <SessionsPage
-            sessions={sessions}
-            onRequestToJoin={handleRequestToJoinSession}
-            userRole={userRole}
-            currentUserId={currentUser?.id}
-            sessionRequests={sessionRequests}
+
+          {/* Protected Routes */}
+          <Route
+            path="/profile-setup"
+            element={
+              <ProtectedRoute>
+                <ProfileSetup
+                  userId={user?.id || ''}
+                  userEmail={user?.email || ''}
+                  onComplete={() => { }} // Now handled internally in ProfileSetup
+                />
+              </ProtectedRoute>
+            }
           />
-        )}
-        {currentPage === "auth" && (
-          <AuthForm
-            onSuccess={handleAuthSuccess}
-            onClose={() => handleNavigate("home")}
+
+          <Route
+            path="/mentors"
+            element={
+              <ProtectedRoute>
+                <MentorDirectory
+                  onSelectMentor={(id) => navigate(`/mentors/${id}`)}
+                />
+              </ProtectedRoute>
+            }
           />
-        )}
-        {currentPage === "dashboard" &&
-          userRole === "mentor" && (
-            <MentorDashboard
-              onAddSession={handleAddSession}
-              onDeleteSession={handleDeleteSession}
-              sessions={sessions}
-              sessionRequests={sessionRequests}
-              currentUserId={currentUser?.id}
-              onRespondToRequest={handleRespondToRequest}
-            />
-          )}
-        {currentPage === "profile-setup" && pendingUserId && pendingUserEmail && (
-          <ProfileSetup
-            userId={pendingUserId}
-            userEmail={pendingUserEmail}
-            onComplete={handleProfileSetupComplete}
+
+          <Route
+            path="/mentors/:id"
+            element={
+              <ProtectedRoute>
+                <MentorProfileWrapper onBack={() => navigate('/mentors')} />
+              </ProtectedRoute>
+            }
           />
-        )}
-        {currentPage === "about" && <AboutPage />}
-        {currentPage === "contact" && <ContactPage />}
-        {currentPage === "careers" && <CareersPage onNavigate={handleNavigate} />}
-        {currentPage === "help" && <HelpPage onNavigate={handleNavigate} />}
-        {currentPage === "community" && <CommunityPage onNavigate={handleNavigate} />}
-        {currentPage === "privacy" && <PrivacyPage />}
-        {currentPage === "terms" && <TermsPage />}
-        {currentPage === "blog" && <BlogPage />}
-        {currentPage === "cookies" && <CookiePage />}
+
+          <Route
+            path="/mentee-dashboard"
+            element={
+              <ProtectedRoute>
+                <MenteeDashboard
+                  sessions={sessions}
+                  sessionRequests={sessionRequests}
+                />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <SessionsPage
+                  sessions={sessions}
+                  onRequestToJoin={handleRequestToJoinSession}
+                  userRole={user?.role || 'mentee'}
+                  currentUserId={user?.id}
+                  sessionRequests={sessionRequests}
+                />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                {user ? (
+                  user.role === 'mentor' ? (
+                    <MentorDashboard
+                      onAddSession={handleAddSession}
+                      onDeleteSession={handleDeleteSession}
+                      sessions={sessions}
+                      sessionRequests={sessionRequests}
+                      currentUserId={user?.id}
+                      onRespondToRequest={handleRespondToRequest}
+                    />
+                  ) : (
+                    <MenteeDashboard
+                      sessions={sessions}
+                      sessionRequests={sessionRequests}
+                    />
+                  )
+                ) : (
+                  <div className="min-h-screen flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                      <p className="text-muted-foreground">Loading your dashboard...</p>
+                    </div>
+                  </div>
+                )}
+              </ProtectedRoute>
+            }
+          />
+
+
+          {/* Catch all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
-      {currentPage !== "auth" && (
-        <Footer onNavigate={handleNavigate} />
-      )}
-      
+      {!isAuthPage && <Footer />}
+
       <BackToTop />
       <Toaster />
     </div>
   );
 }
 
-import { BrowserRouter } from 'react-router-dom';
-import ErrorBoundary from './components/ErrorBoundary';
+function MentorProfileWrapper({ onBack }: { onBack: () => void }) {
+  const { id } = useParams<{ id: string }>();
+  if (!id) return <Navigate to="/mentors" />;
+  return <MentorProfile mentorId={id} onBack={onBack} />;
+}
 
 export default function App() {
   return (

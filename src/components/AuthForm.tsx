@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
-import { 
-  Mail, 
-  Lock, 
+import {
+  Mail,
+  Lock,
   CheckCircle2,
   Sparkles,
   User,
@@ -17,20 +17,35 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { supabase } from "../lib/config";
+import { supabase } from "../lib/supabaseClient";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
-interface AuthFormProps {
-  onSuccess: (userId: string, userEmail: string) => void;
-  onClose?: () => void;
-}
+export function AuthForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { refreshUser } = useAuth();
 
-export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
-  const [authMode, setAuthMode] = useState<"login" | "signup">("signup");
-  
+  // Determine initial mode based on path
+  const [authMode, setAuthMode] = useState<"login" | "signup">(
+    location.pathname === "/signup" ? "signup" : "login"
+  );
+
+  // Sync state if location changes from outside
+  useEffect(() => {
+    if (location.pathname === "/signup") setAuthMode("signup");
+    if (location.pathname === "/login") setAuthMode("login");
+  }, [location.pathname]);
+
+  const handleTabChange = (value: string) => {
+    setAuthMode(value as "login" | "signup");
+    navigate(value === "login" ? "/login" : "/signup");
+  };
+
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  
+
   // Signup form state - Only email and password
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -40,7 +55,7 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!loginEmail || !loginPassword) {
       toast.error("Please fill in all fields");
       return;
@@ -55,13 +70,11 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
 
       if (error) throw error;
       if (!data?.user) throw new Error("Sign in failed");
-      
-      toast.success("Successfully signed in!");
-      onSuccess(data.user.id, loginEmail);
-      onClose?.();
 
-      // Call onSuccess to trigger profile check
-      onSuccess(data.user.id, data.user.email!);
+      toast.success("Successfully signed in!");
+      // Navigation is handled by PublicRoute/ProtectedRoute automatically
+
+
     } catch (error: any) {
       console.error("Login error:", error);
       toast.error("Login failed", {
@@ -74,18 +87,18 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Basic validation
     if (!signupEmail || !signupPassword || !confirmPassword) {
       toast.error("Please fill in all fields");
       return;
     }
-    
+
     if (signupPassword !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
-    
+
     if (signupPassword.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
@@ -110,9 +123,10 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
       toast.success("Account created successfully!", {
         description: "Please check your email to verify your account"
       });
-      
-      // Call onSuccess to show profile setup
-      onSuccess(data.user.id, data.user.email!);
+
+      // Navigate to profile setup or check email page
+      navigate("/profile-setup");
+
     } catch (error: any) {
       console.error("Signup error:", error);
       toast.error("Signup failed", {
@@ -145,14 +159,14 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
                     <Sparkles className="w-4 h-4 mr-2" />
                     Topvoice.lk
                   </Badge>
-                  
+
                   <h1 className="mb-4 text-3xl lg:text-4xl text-foreground">
                     {authMode === "login" ? "Welcome Back!" : "Join Our Community"}
                   </h1>
-                  
+
                   <p className="mb-8 text-foreground/80 text-lg">
-                    {authMode === "login" 
-                      ? "Continue your journey to success" 
+                    {authMode === "login"
+                      ? "Continue your journey to success"
                       : "Start your journey to professional excellence"}
                   </p>
                 </motion.div>
@@ -188,7 +202,7 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
 
             {/* Right Side - Form */}
             <div className="p-8 lg:p-12 bg-white dark:bg-card">
-              <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as "login" | "signup")} className="w-full">
+              <Tabs value={authMode} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-8">
                   <TabsTrigger value="login">Login</TabsTrigger>
                   <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -231,6 +245,51 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
 
                     <Button type="submit" className="w-full mt-6" disabled={isLoading}>
                       {isLoading ? "Logging in..." : "Login"}
+                    </Button>
+
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white dark:bg-card px-2 text-muted-foreground">Or continue with</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={isLoading}
+                      onClick={async () => {
+                        if (!loginEmail) {
+                          toast.error("Please enter your email address first");
+                          return;
+                        }
+                        setIsLoading(true);
+                        try {
+                          const { error } = await supabase.auth.signInWithOtp({
+                            email: loginEmail,
+                            options: {
+                              emailRedirectTo: window.location.origin,
+                            },
+                          });
+                          if (error) throw error;
+                          toast.success("Magic link sent!", {
+                            description: "Check your email for the login link."
+                          });
+                        } catch (error: any) {
+                          console.error("Magic link error:", error);
+                          toast.error("Failed to send magic link", {
+                            description: error.message
+                          });
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Sign in with Magic Link
                     </Button>
                   </form>
                 </TabsContent>
@@ -306,15 +365,13 @@ export function AuthForm({ onSuccess, onClose }: AuthFormProps) {
                 </TabsContent>
               </Tabs>
 
-              {onClose && (
-                <Button
-                  variant="ghost"
-                  className="w-full mt-4"
-                  onClick={onClose}
-                >
-                  Cancel
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                className="w-full mt-4"
+                onClick={() => navigate("/")}
+              >
+                Cancel
+              </Button>
             </div>
           </div>
         </Card>

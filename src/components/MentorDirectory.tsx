@@ -5,8 +5,9 @@ import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Search, MapPin, Award, Briefcase, Sparkles } from "lucide-react";
-import { getMentors } from "../utils/mockData";
+import { getMentors as getMockMentors } from "../utils/mockData";
 import { motion } from "motion/react";
+import { supabaseService } from "../services/supabaseService";
 
 interface Mentor {
   id: string;
@@ -21,28 +22,32 @@ interface Mentor {
 }
 
 interface MentorDirectoryProps {
-  onSelectMentor: (mentorId: number) => void;
+  onSelectMentor: (mentorId: string) => void;
 }
 
 export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [mentors, setMentors] = useState<Mentor[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadMentors();
   }, []);
 
-  const loadMentors = () => {
+  const loadMentors = async () => {
+    setIsLoading(true);
     try {
-      const loadedMentors = getMentors();
-      
+      // 1. Fetch from Supabase
+      const sourceMentors = await supabaseService.getAllMentors();
+      console.log("DEBUG: sourceMentors from service:", sourceMentors);
+
       // Transform to frontend format
-      const transformedMentors = loadedMentors.map((m: any) => ({
+      const transformedMentors = sourceMentors.map((m: any) => ({
         id: m.id,
         name: m.name,
         title: m.currentRole || "Mentor",
         expertise: m.expertise || [],
-        location: "Remote",
+        location: m.location || "Remote",
         experience: `${m.yearsExperience || 0}+ years`,
         avatar: m.avatar,
         achievementCount: m.achievements?.length || 0,
@@ -52,6 +57,8 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
       setMentors(transformedMentors);
     } catch (error: any) {
       console.error("Failed to load mentors:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -65,7 +72,7 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
     <div className="min-h-screen bg-gradient-to-b from-background via-muted/30 to-background">
       <div className="container mx-auto px-4 py-12">
         {/* Header Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -82,7 +89,7 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
         </motion.div>
 
         {/* Search Bar */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -104,76 +111,12 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
           )}
         </motion.div>
 
-        {/* Mentors Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMentors.map((mentor, index) => (
-            <motion.div
-              key={mentor.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: index * 0.05 }}
-            >
-              <Card className="p-6 h-full hover:shadow-2xl transition-all hover:-translate-y-2 border-2 hover:border-primary/30 group">
-                <div className="flex items-start gap-4 mb-4">
-                  <Avatar className="w-16 h-16 ring-2 ring-primary/30 group-hover:ring-primary transition-all">
-                    <AvatarImage src={mentor.avatar} />
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
-                      {mentor.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <h3 className="mb-1 group-hover:text-primary transition-colors">{mentor.name}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{mentor.title}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 mb-5">
-                  {mentor.company && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Briefcase className="w-4 h-4 text-primary" />
-                      <span className="truncate">{mentor.company}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4 text-primary" />
-                    {mentor.location} • {mentor.experience}
-                  </div>
-                  {mentor.achievementCount > 0 && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Award className="w-4 h-4 text-primary" />
-                      <span className="font-medium text-primary">{mentor.achievementCount} Achievement{mentor.achievementCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mb-5">
-                  <p className="text-sm font-medium mb-2.5 text-muted-foreground">Expertise</p>
-                  <div className="flex flex-wrap gap-2">
-                    {mentor.expertise.slice(0, 4).map((skill, index) => (
-                      <Badge key={index} variant="secondary" className="shadow-sm">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {mentor.expertise.length > 4 && (
-                      <Badge variant="outline" className="border-primary/30">
-                        +{mentor.expertise.length - 4} more
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <Button 
-                  className="w-full shadow-md hover:shadow-lg transition-all" 
-                  onClick={() => onSelectMentor(Number(mentor.id.replace('mentor', '')))}
-                >
-                  View Profile
-                </Button>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-
-        {filteredMentors.length === 0 && (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-muted-foreground">Loading expert mentors...</p>
+          </div>
+        ) : filteredMentors.length === 0 ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -182,11 +125,83 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
             <div className="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
               <Search className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="mb-2">No mentors found</h3>
+            <h3 className="mb-2">
+              {mentors.length === 0 ? "No mentors found in the database" : "No mentors matching your search"}
+            </h3>
             <p className="text-muted-foreground">
-              Try adjusting your search to find what you're looking for
+              {mentors.length === 0
+                ? "Check back later or invite experts to join our community."
+                : "Try adjusting your search terms to find what you're looking for."}
             </p>
           </motion.div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMentors.map((mentor, index) => (
+              <motion.div
+                key={mentor.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: index * 0.05 }}
+              >
+                <Card className="p-6 h-full hover:shadow-2xl transition-all hover:-translate-y-2 border-2 hover:border-primary/30 group">
+                  <div className="flex items-start gap-4 mb-4">
+                    <Avatar className="w-16 h-16 ring-2 ring-primary/30 group-hover:ring-primary transition-all">
+                      <AvatarImage src={mentor.avatar} />
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                        {mentor.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <h3 className="mb-1 group-hover:text-primary transition-colors">{mentor.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{mentor.title}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 mb-5">
+                    {mentor.company && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Briefcase className="w-4 h-4 text-primary" />
+                        <span className="truncate">{mentor.company}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      {mentor.location} • {mentor.experience}
+                    </div>
+                    {mentor.achievementCount > 0 && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Award className="w-4 h-4 text-primary" />
+                        <span className="font-medium text-primary">{mentor.achievementCount} Achievement{mentor.achievementCount !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-5">
+                    <p className="text-sm font-medium mb-2.5 text-muted-foreground">Expertise</p>
+                    <div className="flex flex-wrap gap-2">
+                      {mentor.expertise.slice(0, 4).map((skill, index) => (
+                        <Badge key={index} variant="secondary" className="shadow-sm">
+                          {skill}
+                        </Badge>
+                      ))}
+                      {mentor.expertise.length > 4 && (
+                        <Badge variant="outline" className="border-primary/30">
+                          +{mentor.expertise.length - 4} more
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full shadow-md hover:shadow-lg transition-all"
+                    onClick={() => onSelectMentor(mentor.id)}
+                  >
+                    View Profile
+                  </Button>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
         )}
       </div>
     </div>

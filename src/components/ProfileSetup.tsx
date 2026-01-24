@@ -5,9 +5,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "./ui/badge";
-import { 
-  User, 
-  Briefcase, 
+import {
+  User,
+  Briefcase,
   GraduationCap,
   Linkedin,
   Github,
@@ -18,13 +18,14 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { supabaseService } from "@/services/supabaseService";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
+import { supabaseService } from "../services/supabaseService";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileSetupProps {
   userId: string;
   userEmail: string;
-  onComplete: (profileData: any) => void;
+  onComplete: (profileData: any) => void; // Keep for compatibility if needed, but make optional in future
   initialData?: {
     full_name?: string;
     bio?: string;
@@ -38,29 +39,29 @@ interface ProfileSetupProps {
   };
 }
 
-export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }: ProfileSetupProps) {
+// TODO: Remove onComplete prop in next iteration when App.tsx is fully cleaned up of legacy props
+export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<ProfileSetupProps, 'onComplete'> & { onComplete?: any }) {
   const { refreshUser } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<"role" | "details">("role");
   const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     full_name: initialData.full_name || "",
     bio: initialData.bio || "",
+    avatar_url: "",
     years_experience: initialData.years_experience?.toString() || "",
     linkedin_url: initialData.linkedin_url || "",
     github_url: initialData.github_url || "",
     website_url: initialData.website_url || "",
+    expertise: "",
     interests: initialData.interests?.join(", ") || "",
     current_role: initialData.current_role || "",
     goals: initialData.goals || "",
   });
-  
-  const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
-  const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<"role" | "details">("role");
-  
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -76,7 +77,7 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.full_name.trim()) {
       toast.error("Please enter your full name");
@@ -97,55 +98,51 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
 
     setIsLoading(true);
     try {
-      // Prepare profile data for Supabase
+      // Prepare profile data
       const profileData = {
         id: userId,
         email: userEmail,
-        full_name: formData.full_name.trim(),
+        name: formData.full_name.trim(),
+        avatar: formData.avatar_url,
         role: userType,
         bio: formData.bio,
-        years_experience: parseInt(formData.years_experience) || 0,
-        linkedin_url: formData.linkedin_url,
-        github_url: formData.github_url,
-        website_url: formData.website_url,
+        expertise: formData.expertise.split(",").map(i => i.trim()).filter(Boolean),
+        yearsExperience: parseInt(formData.years_experience) || 0,
+        linkedin: formData.linkedin_url,
+        github: formData.github_url,
+        website: formData.website_url,
         interests: formData.interests.split(",").map(i => i.trim()).filter(Boolean),
-        current_role: formData.current_role,
+        currentRole: formData.current_role,
+        company: "",
         goals: formData.goals,
-        profile_completed: true,
-        updated_at: new Date().toISOString()
+        profileCompleted: true,
       };
 
-      // Check if profile exists
-      const { data: existingProfile } = await supabaseService.getProfile(userId);
-      
-      let result;
-      if (existingProfile) {
-        // Update existing profile
-        result = await supabaseService.updateProfile(userId, profileData);
-      } else {
-        // Create new profile
-        result = await supabaseService.createProfile({
-          ...profileData,
-          created_at: new Date().toISOString()
-        });
+      // Create profile in Supabase
+      const profile = await supabaseService.createProfile(profileData);
+
+      if (!profile) {
+        console.error("Profile creation returned null");
+        throw new Error("Failed to create profile. Please check the network or try again.");
       }
 
-      if (!result) {
-        throw new Error("Failed to save profile");
-      }
+      console.log("Profile created successfully:", profile.id);
 
       // Refresh auth context
       await refreshUser();
 
-      // Call the onComplete callback with the profile data
-      if (typeof onComplete === 'function') {
-        await onComplete(result);
-      }
-      
       // Show success message
       toast.success("Profile setup completed!", {
         description: `Welcome to Topvoice.lk, ${formData.full_name}!`
       });
+
+      // Redirect based on role
+      if (userType === "mentor") {
+        navigate("/dashboard");
+      } else {
+        navigate("/mentors");
+      }
+
     } catch (error: any) {
       console.error("Profile setup error:", error);
       toast.error("Failed to complete profile setup", {
@@ -170,14 +167,14 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
               <Sparkles className="w-4 h-4 mr-2" />
               Topvoice.lk
             </Badge>
-            
+
             <h1 className="mb-2 text-3xl">
               Complete Your Profile
             </h1>
-            
+
             <p className="text-black/80">
-              {step === "role" 
-                ? "First, tell us about yourself" 
+              {step === "role"
+                ? "First, tell us about yourself"
                 : `Let's set up your ${userType} profile`}
             </p>
           </div>
@@ -250,6 +247,25 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="avatar_url">Profile Photo URL</Label>
+                      <div className="flex gap-4 items-center">
+                        {formData.avatar_url && (
+                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+                            <img src={formData.avatar_url} alt="Profile preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <Input
+                          id="avatar_url"
+                          name="avatar_url"
+                          type="url"
+                          placeholder="https://images.unsplash.com/..."
+                          value={formData.avatar_url}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="years_experience">Years of Experience *</Label>
                       <Input
                         id="years_experience"
@@ -262,6 +278,24 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
                         required={userType === 'mentor'}
                       />
                     </div>
+
+                    {userType === "mentor" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="expertise">Expertise Areas *</Label>
+                        <Input
+                          id="expertise"
+                          name="expertise"
+                          type="text"
+                          placeholder="e.g., React, Node.js, System Design"
+                          value={formData.expertise}
+                          onChange={handleInputChange}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Separate multiple areas with commas
+                        </p>
+                      </div>
+                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="bio">Professional Bio *</Label>
@@ -388,9 +422,9 @@ export function ProfileSetup({ userId, userEmail, onComplete, initialData = {} }
                     >
                       Back
                     </Button>
-                    <Button 
-                      type="submit" 
-                      className="w-full" 
+                    <Button
+                      type="submit"
+                      className="w-full"
                       disabled={isLoading}
                     >
                       {isLoading ? (
