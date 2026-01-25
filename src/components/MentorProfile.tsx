@@ -228,6 +228,28 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
               </div>
             </div>
 
+            {mentor.availability && (
+              <div className="mb-6 pt-6 border-t border-border/50">
+                <p className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  Availability
+                </p>
+                <div className="space-y-2">
+                  {Object.entries(mentor.availability)
+                    .filter(([_, data]: [string, any]) => data.enabled)
+                    .map(([day, data]: [string, any]) => (
+                      <div key={day} className="flex justify-between text-xs py-1 border-b border-border/30 last:border-0">
+                        <span className="capitalize text-muted-foreground">{day}</span>
+                        <span className="font-medium">{data.startTime} - {data.endTime}</span>
+                      </div>
+                    ))}
+                  {Object.values(mentor.availability).every((d: any) => !d.enabled) && (
+                    <p className="text-xs text-muted-foreground italic">No specific availability set.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <Button
                 className="w-full"
@@ -364,6 +386,7 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
         open={showRequestDialog}
         onOpenChange={setShowRequestDialog}
         mentorName={mentor.name}
+        mentorId={mentor.id}
       />
       <HireMentorDialog
         open={showHireDialog}

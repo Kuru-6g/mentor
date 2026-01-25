@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { UserCheck, Mail, Briefcase, GraduationCap, Sparkles, Target } from "lucide-react";
+import { toast } from "sonner";
 
 interface JoinSessionDialogProps {
   open: boolean;
@@ -46,34 +47,41 @@ export function JoinSessionDialog({
 
     // Validation
     if (!formData.fullName.trim()) {
+      toast.error("Full name is required");
       return;
     }
     if (!formData.email.trim() || !formData.email.includes("@")) {
+      toast.error("A valid email address is required");
       return;
     }
     if (!formData.phone.trim()) {
+      toast.error("Phone number is required");
       return;
     }
     if (!formData.occupation.trim()) {
+      toast.error("Occupation is required");
       return;
     }
     if (!formData.experienceLevel) {
+      toast.error("Please select your experience level");
       return;
     }
-    if (formData.reasonToJoin.trim().length < 50) {
+    if (formData.reasonToJoin.trim().length < 10) {
+      toast.error("Please provide a more detailed reason for joining (min 10 characters)");
       return;
     }
-    if (formData.expectations.trim().length < 30) {
+    if (formData.expectations.trim().length < 10) {
+      toast.error("Please provide more details about your expectations (min 10 characters)");
       return;
     }
 
     setIsSubmitting(true);
-    
+
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     onSubmit(formData);
-    
+
     // Reset form
     setFormData({
       fullName: "",
@@ -84,7 +92,7 @@ export function JoinSessionDialog({
       reasonToJoin: "",
       expectations: "",
     });
-    
+
     setIsSubmitting(false);
     onOpenChange(false);
   };
@@ -190,9 +198,9 @@ export function JoinSessionDialog({
               <Label htmlFor="experienceLevel" className="text-foreground">
                 Experience Level *
               </Label>
-              <Select 
-                value={formData.experienceLevel} 
-                onValueChange={(value) => updateFormData("experienceLevel", value)}
+              <Select
+                value={formData.experienceLevel}
+                onValueChange={(value: string) => updateFormData("experienceLevel", value)}
               >
                 <SelectTrigger id="experienceLevel" className="border-border hover:border-primary/50 focus:border-primary transition-colors">
                   <SelectValue placeholder="Select your experience level" />
@@ -227,7 +235,7 @@ export function JoinSessionDialog({
               />
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                Minimum 50 characters ({formData.reasonToJoin.length}/50)
+                Minimum 10 characters ({formData.reasonToJoin.length}/10)
               </p>
             </div>
 
@@ -247,7 +255,7 @@ export function JoinSessionDialog({
               />
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                Minimum 30 characters ({formData.expectations.length}/30)
+                Minimum 10 characters ({formData.expectations.length}/10)
               </p>
             </div>
           </div>

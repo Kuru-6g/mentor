@@ -10,52 +10,11 @@ import { toast } from "sonner";
 import { MySessionRequests } from "./MySessionRequests";
 import { JoinSessionDialog, JoinSessionFormData } from "./JoinSessionDialog";
 
-interface Speaker {
-  name: string;
-  avatar: string;
-  title?: string;
-}
-
-interface Session {
-  id: number;
-  title: string;
-  description: string;
-  speakers: Speaker[];
-  date: string;
-  time: string;
-  duration: string;
-  topics: string[];
-  attendees: number;
-  sessionType: "online" | "physical";
-  location?: string;
-  maxSlots?: number;
-  availableSlots?: number;
-  companyName?: string;
-}
-
-interface SessionRequest {
-  id: string;
-  sessionId: number;
-  userId: string;
-  userName?: string;
-  userEmail?: string;
-  userAvatar?: string;
-  status: "pending" | "accepted" | "rejected";
-  requestedAt: string;
-  updatedAt: string;
-  // Additional form data
-  phone?: string;
-  occupation?: string;
-  experienceLevel?: string;
-  reasonToJoin?: string;
-  expectations?: string;
-}
-
-import { UserProfile } from "../services/supabaseService";
+import { supabaseService, Session, SessionRequest, UserProfile } from "../services/supabaseService";
 
 interface SessionsPageProps {
   sessions: Session[];
-  onRequestToJoin: (sessionId: number | string, formData?: any) => void;
+  onRequestToJoin: (sessionId: number | string, formData?: any, mentorId?: string) => void;
   userRole: UserProfile['role'] | null;
   currentUserId?: string;
   sessionRequests: SessionRequest[];
@@ -101,7 +60,9 @@ export function SessionsPage({
       experienceLevel: formData.experienceLevel,
       reasonToJoin: formData.reasonToJoin,
       expectations: formData.expectations,
-    });
+      fullName: formData.fullName,
+      email: formData.email,
+    }, selectedSession.createdBy);
   };
 
   const getRequestStatus = (sessionId: number) => {

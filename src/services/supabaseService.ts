@@ -23,8 +23,61 @@ export interface UserProfile {
   goals?: string;
   achievements?: any[];
   profileCompleted?: boolean;
+  availability?: any;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Speaker {
+  name: string;
+  avatar: string;
+  title?: string;
+}
+
+export interface Session {
+  id: number | string;
+  title: string;
+  description: string;
+  speakers: Speaker[];
+  mentorName?: string;
+  mentorAvatar?: string;
+  date: string;
+  time: string;
+  duration: string;
+  topics: string[];
+  attendees: number;
+  sessionType: "online" | "physical";
+  location?: string;
+  maxSlots?: number;
+  availableSlots?: number;
+  companyName?: string;
+  meetingUrl?: string;
+  createdBy?: string;
+  status: string;
+}
+
+export interface SessionRequest {
+  id: string;
+  sessionId: number | string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userAvatar: string;
+  status: "pending" | "accepted" | "rejected";
+  requestedAt: string;
+  updatedAt: string;
+  phone?: string;
+  occupation?: string;
+  experienceLevel?: string;
+  reasonToJoin?: string;
+  expectations?: string;
+  mentorId?: string;
+  preferredDate?: string;
+  preferredTime?: string;
+  mentorshipType?: string;
+  message?: string;
+  mentorMessage?: string;
+  meetingUrl?: string;
 }
 
 export const supabaseService = {
@@ -207,6 +260,7 @@ export const supabaseService = {
       goals: updates.goals,
       achievements: updates.achievements,
       profile_completed: updates.profileCompleted,
+      availability: updates.availability,
       updated_at: new Date().toISOString(),
     };
 
@@ -303,25 +357,83 @@ export const supabaseService = {
   },
 
   async createSession(session: any) {
+    // Map application camelCase to database snake_case
+    const dbSession = {
+      title: session.title,
+      description: session.description,
+      speakers: session.speakers,
+      mentor_name: session.mentorName,
+      mentor_avatar: session.mentorAvatar,
+      date: session.date,
+      time: session.time,
+      // Ensure we send a VALID timestamp format for TIMESTAMPTZ: YYYY-MM-DDTHH:MM:SSZ
+      start_time: session.date && session.time && session.time.includes(':')
+        ? `${session.date}T${session.time.split(' ')[0].length === 5 ? session.time.split(' ')[0] : '00:00'}:00Z`
+        : null,
+      end_time: null,
+      duration: session.duration,
+      topics: session.topics,
+      attendees: session.attendees || 0,
+      session_type: session.sessionType,
+      location: session.location,
+      max_slots: session.maxSlots,
+      meeting_url: session.meetingUrl,
+      available_slots: session.availableSlots,
+      company_name: session.companyName,
+      created_by: session.createdBy,
+      status: session.status || 'scheduled',
+    };
+
+    // Remove undefined
+    Object.keys(dbSession).forEach(key => (dbSession as any)[key] === undefined && delete (dbSession as any)[key]);
+
     const { data, error } = await supabase
       .from(tables.sessions)
-      .insert(session)
+      .insert(dbSession)
       .select()
       .single();
 
     if (error) {
       console.error('Error creating session:', error);
-      toast.error('Failed to create session');
+      toast.error(`Failed to create session: ${error.message}`);
       return null;
     }
 
-    return data;
+    // Map back for local state
+    return {
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      speakers: data.speakers || [],
+      mentorName: data.mentor_name,
+      mentorAvatar: data.mentor_avatar,
+      date: data.date,
+      time: data.time,
+      duration: data.duration,
+      topics: data.topics || [],
+      attendees: data.attendees || 0,
+      sessionType: data.session_type,
+      location: data.location,
+      maxSlots: data.max_slots,
+      availableSlots: data.available_slots,
+      companyName: data.company_name,
+      createdBy: data.created_by,
+      status: data.status,
+    };
   },
 
   async updateSession(sessionId: string | number, updates: any) {
+    // Map updates to snake_case
+    const dbUpdates: any = {};
+    if (updates.attendees !== undefined) dbUpdates.attendees = updates.attendees;
+    if (updates.availableSlots !== undefined) dbUpdates.available_slots = updates.availableSlots;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    // Add more as needed...
+
     const { data, error } = await supabase
       .from(tables.sessions)
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', sessionId)
       .select()
       .single();
@@ -332,7 +444,27 @@ export const supabaseService = {
       return null;
     }
 
-    return data;
+    // Map back
+    return {
+      id: data.id,
+      title: data.title,
+      description: data.description,
+      speakers: data.speakers || [],
+      mentorName: data.mentor_name,
+      mentorAvatar: data.mentor_avatar,
+      date: data.date,
+      time: data.time,
+      duration: data.duration,
+      topics: data.topics || [],
+      attendees: data.attendees || 0,
+      sessionType: data.session_type,
+      location: data.location,
+      maxSlots: data.max_slots,
+      availableSlots: data.available_slots,
+      companyName: data.company_name,
+      createdBy: data.created_by,
+      status: data.status,
+    };
   },
 
   async deleteSession(sessionId: string | number) {
@@ -390,6 +522,13 @@ export const supabaseService = {
       experienceLevel: r.experience_level,
       reasonToJoin: r.reason_to_join,
       expectations: r.expectations,
+      preferredDate: r.preferred_date,
+      preferredTime: r.preferred_time,
+      mentorshipType: r.mentorship_type,
+      mentorId: r.mentor_id,
+      message: r.message,
+      mentorMessage: r.mentor_message,
+      meetingUrl: r.meeting_url,
     }));
   },
 
@@ -409,13 +548,16 @@ export const supabaseService = {
     return data;
   },
 
-  async updateSessionRequest(requestId: string, status: string) {
+  async updateSessionRequest(requestId: string, status: string, mentorMessage?: string, meetingUrl?: string) {
     const { data, error } = await supabase
       .from(tables.session_requests)
-      .update({ status, updated_at: new Date().toISOString() })
+      .update({
+        status,
+        mentor_message: mentorMessage,
+        meeting_url: meetingUrl
+      })
       .eq('id', requestId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error updating session request:', error);
@@ -423,7 +565,29 @@ export const supabaseService = {
       return null;
     }
 
-    return data;
+    return data && data.length > 0 ? {
+      id: data[0].id,
+      sessionId: data[0].session_id,
+      userId: data[0].user_id,
+      userName: data[0].user_name,
+      userEmail: data[0].user_email,
+      userAvatar: data[0].user_avatar,
+      status: data[0].status,
+      requestedAt: data[0].created_at,
+      updatedAt: data[0].updated_at,
+      phone: data[0].phone,
+      occupation: data[0].occupation,
+      experienceLevel: data[0].experience_level,
+      reasonToJoin: data[0].reason_to_join,
+      expectations: data[0].expectations,
+      preferredDate: data[0].preferred_date,
+      preferredTime: data[0].preferred_time,
+      mentorshipType: data[0].mentorship_type,
+      mentorId: data[0].mentor_id,
+      message: data[0].message,
+      mentorMessage: data[0].mentor_message,
+      meetingUrl: data[0].meeting_url,
+    } : null;
   },
 
   // Add more methods for other operations as needed

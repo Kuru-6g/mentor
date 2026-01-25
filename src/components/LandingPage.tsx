@@ -14,30 +14,7 @@ import {
 } from "./ui/carousel";
 import { useNavigate } from "react-router-dom";
 
-export interface Speaker {
-  name: string;
-  avatar: string;
-  title?: string;
-}
-
-interface Session {
-  id: number;
-  title: string;
-  description: string;
-  mentorName?: string;
-  mentorAvatar?: string;
-  date: string;
-  time: string;
-  duration: string;
-  topics: string[];
-  attendees: number;
-  sessionType: "online" | "physical";
-  location?: string;
-  maxSlots?: number;
-  availableSlots?: number;
-  companyName?: string;
-  speakers: Speaker[];
-}
+import { Session, Speaker } from "../services/supabaseService";
 
 interface LandingPageProps {
   sessions: Session[];

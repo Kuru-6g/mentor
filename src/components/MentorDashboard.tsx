@@ -9,11 +9,13 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Plus, Edit, Trash2, Calendar, Award, Video, Users2, MapPin, Monitor, UserPlus, X, Inbox, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Calendar, Award, Video, Users2, MapPin, Monitor, UserPlus, X, Inbox, Users, Zap } from "lucide-react";
 import { SessionRequestsManager } from "./SessionRequestsManager";
 import { SessionParticipants } from "./SessionParticipants";
+import { SessionParticipantsModal } from "./SessionParticipantsModal";
+import { AvailabilitySettings } from "./AvailabilitySettings";
 import { useAuth } from "../contexts/AuthContext";
-import { supabaseService } from "../services/supabaseService";
+import { supabaseService, Session, SessionRequest, Speaker } from "../services/supabaseService";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -25,30 +27,6 @@ interface Achievement {
   type: string;
 }
 
-interface Speaker {
-  name: string;
-  avatar: string;
-  title?: string;
-}
-
-interface Session {
-  id: number;
-  title: string;
-  description: string;
-  speakers: Speaker[];
-  date: string;
-  time: string;
-  duration: string;
-  topics: string[];
-  attendees: number;
-  sessionType: "online" | "physical";
-  location?: string;
-  maxSlots?: number;
-  availableSlots?: number;
-  companyName?: string;
-  createdBy?: string;
-}
-
 interface VisitingExperience {
   id: number;
   menteeName: string;
@@ -58,25 +36,13 @@ interface VisitingExperience {
   topics: string[];
 }
 
-interface SessionRequest {
-  id: string;
-  sessionId: number;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  userAvatar: string;
-  status: "pending" | "accepted" | "rejected";
-  requestedAt: string;
-  updatedAt: string;
-}
-
 interface MentorDashboardProps {
   onAddSession: (session: Omit<Session, "id" | "attendees" | "availableSlots">) => void;
-  onDeleteSession: (sessionId: number) => void;
+  onDeleteSession: (sessionId: number | string) => void;
   sessions: Session[];
   sessionRequests: SessionRequest[];
   currentUserId?: string;
-  onRespondToRequest: (requestId: string, action: "accept" | "reject") => void;
+  onRespondToRequest: (requestId: string, action: "accept" | "reject", message?: string, meetingUrl?: string) => void;
 }
 
 
@@ -188,7 +154,8 @@ export function MentorDashboard({
     sessionType: "online" as "online" | "physical",
     location: "",
     maxSlots: "50",
-    companyName: ""
+    companyName: "",
+    meetingUrl: ""
   });
 
   const [sessionSpeakers, setSessionSpeakers] = useState<Speaker[]>([]);
@@ -208,31 +175,42 @@ export function MentorDashboard({
   const [isAddAchievementOpen, setIsAddAchievementOpen] = useState(false);
   const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
   const [isAddExperienceOpen, setIsAddExperienceOpen] = useState(false);
+  const [selectedSessionForParticipants, setSelectedSessionForParticipants] = useState<Session | null>(null);
+  const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
 
   const handleAddAchievement = async () => {
-    if (newAchievement.title && newAchievement.description && user) {
-      const updatedAchievements = [
-        ...achievements,
-        {
-          ...newAchievement,
-          id: Date.now() // Use timestamp as ID for local/temp
-        }
-      ];
+    if (!newAchievement.title) {
+      toast.error("Achievement title is required");
+      return;
+    }
 
-      try {
-        const result = await supabaseService.updateProfile(user.id, {
-          achievements: updatedAchievements
-        });
-        if (result) {
-          setAchievements(updatedAchievements);
-          toast.success("Achievement added successfully");
-          await refreshUser();
-          setNewAchievement({ title: "", description: "", date: "", type: "Certification" });
-          setIsAddAchievementOpen(false);
-        }
-      } catch (error) {
-        toast.error("Failed to add achievement");
+    if (!user) return;
+
+    setIsLoading(true);
+    const updatedAchievements = [
+      ...achievements,
+      {
+        ...newAchievement,
+        id: Date.now() // Use timestamp as ID for local/temp
       }
+    ];
+
+    try {
+      const result = await supabaseService.updateProfile(user.id, {
+        achievements: updatedAchievements
+      });
+      if (result) {
+        setAchievements(updatedAchievements);
+        toast.success("Achievement added successfully");
+        await refreshUser();
+        setNewAchievement({ title: "", description: "", date: "", type: "Certification" });
+        setIsAddAchievementOpen(false);
+      }
+    } catch (error) {
+      console.error("Add achievement error:", error);
+      toast.error("Failed to add achievement");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -249,7 +227,9 @@ export function MentorDashboard({
         sessionType: newSession.sessionType,
         location: newSession.sessionType === "physical" ? newSession.location : undefined,
         maxSlots: parseInt(newSession.maxSlots) || 50,
-        companyName: newSession.companyName || undefined
+        companyName: newSession.companyName || undefined,
+        meetingUrl: newSession.meetingUrl || undefined,
+        status: "scheduled"
       });
       setNewSession({
         title: "",
@@ -261,7 +241,8 @@ export function MentorDashboard({
         sessionType: "online",
         location: "",
         maxSlots: "50",
-        companyName: ""
+        companyName: "",
+        meetingUrl: ""
       });
       setSessionSpeakers([]);
       setIsAddSessionOpen(false);
@@ -291,6 +272,14 @@ export function MentorDashboard({
         title: user.currentRole || "Mentor"
       }]);
     }
+  };
+
+  const generateJitsiLink = () => {
+    const randomId = Math.random().toString(36).substring(2, 10);
+    const roomName = `Topvoice-Session-${randomId}`;
+    const link = `https://meet.jit.si/${roomName}`;
+    setNewSession({ ...newSession, meetingUrl: link });
+    toast.success("Jitsi Meet link generated!");
   };
 
   const handleAddExperience = () => {
@@ -331,7 +320,7 @@ export function MentorDashboard({
     }
   };
 
-  const handleDeleteSessionClick = (id: number) => {
+  const handleDeleteSessionClick = (id: number | string) => {
     onDeleteSession(id);
   };
 
@@ -349,13 +338,13 @@ export function MentorDashboard({
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="participants" className="gap-2">
-            <Users className="w-4 h-4" />
-            Participants
+          <TabsTrigger value="availability" className="gap-2">
+            <Calendar className="w-4 h-4" />
+            Availability
           </TabsTrigger>
-          <TabsTrigger value="requests" className="gap-2">
-            <Inbox className="w-4 h-4" />
-            Requests
+          <TabsTrigger value="mentorship-requests" className="gap-2">
+            <UserPlus className="w-4 h-4" />
+            Mentorship Requests
           </TabsTrigger>
           <TabsTrigger value="experiences">Experiences</TabsTrigger>
         </TabsList>
@@ -523,14 +512,14 @@ export function MentorDashboard({
                   Create Session
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>Create New Session</DialogTitle>
                   <DialogDescription>
                     Create a new tech session to share your knowledge with the community.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
                   <div>
                     <Label>Title</Label>
                     <Input
@@ -548,16 +537,88 @@ export function MentorDashboard({
                       rows={4}
                     />
                   </div>
-                  <div>
-                    <Label>Company Name (Optional)</Label>
-                    <Input
-                      value={newSession.companyName}
-                      onChange={(e) => setNewSession({ ...newSession, companyName: e.target.value })}
-                      placeholder="e.g., TechCorp Inc."
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={newSession.date}
+                        onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label>Time</Label>
+                      <Input
+                        value={newSession.time}
+                        onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
+                        placeholder="e.g., 6:00 PM EST"
+                      />
+                    </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Duration</Label>
+                      <Input
+                        value={newSession.duration}
+                        onChange={(e) => setNewSession({ ...newSession, duration: e.target.value })}
+                        placeholder="e.g., 90 minutes"
+                      />
+                    </div>
+                    <div>
+                      <Label>Max Slots</Label>
+                      <Input
+                        type="number"
+                        value={newSession.maxSlots}
+                        onChange={(e) => setNewSession({ ...newSession, maxSlots: e.target.value })}
+                        placeholder="50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Session Type</Label>
+                    <Select
+                      value={newSession.sessionType}
+                      onValueChange={(value: "online" | "physical") => setNewSession({ ...newSession, sessionType: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="online">Online</SelectItem>
+                        <SelectItem value="physical">Physical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {newSession.sessionType === "online" && (
+                    <div className="space-y-2">
+                      <Label className="flex justify-between">
+                        Meeting Link
+                        <button
+                          type="button"
+                          onClick={generateJitsiLink}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Zap className="w-3 h-3" /> Generate Free Jitsi Link
+                        </button>
+                      </Label>
+                      <Input
+                        value={newSession.meetingUrl}
+                        onChange={(e) => setNewSession({ ...newSession, meetingUrl: e.target.value })}
+                        placeholder="https://meet.jit.si/your-room"
+                      />
+                    </div>
+                  )}
+                  {newSession.sessionType === "physical" && (
+                    <div>
+                      <Label>Location</Label>
+                      <Input
+                        value={newSession.location}
+                        onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
+                        placeholder="e.g., Tech Hub, San Francisco"
+                      />
+                    </div>
+                  )}
 
-                  {/* Speakers Section */}
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <div className="flex items-center justify-between mb-3">
                       <Label>Speakers ({sessionSpeakers.length})</Label>
@@ -576,18 +637,7 @@ export function MentorDashboard({
                       <div className="space-y-2 mb-3">
                         {sessionSpeakers.map((speaker, idx) => (
                           <div key={idx} className="flex items-center gap-2 bg-background p-2 rounded-md">
-                            <Avatar className="w-8 h-8">
-                              <AvatarImage src={speaker.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {speaker.name.split(' ').map(n => n[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm truncate">{speaker.name}</p>
-                              {speaker.title && (
-                                <p className="text-xs text-muted-foreground truncate">{speaker.title}</p>
-                              )}
-                            </div>
+                            <span className="text-sm truncate flex-1">{speaker.name}</span>
                             <Button
                               type="button"
                               variant="ghost"
@@ -607,16 +657,6 @@ export function MentorDashboard({
                         value={newSpeaker.name}
                         onChange={(e) => setNewSpeaker({ ...newSpeaker, name: e.target.value })}
                       />
-                      <Input
-                        placeholder="Speaker title (optional)"
-                        value={newSpeaker.title}
-                        onChange={(e) => setNewSpeaker({ ...newSpeaker, title: e.target.value })}
-                      />
-                      <Input
-                        placeholder="Speaker avatar URL (optional)"
-                        value={newSpeaker.avatar}
-                        onChange={(e) => setNewSpeaker({ ...newSpeaker, avatar: e.target.value })}
-                      />
                       <Button
                         type="button"
                         variant="secondary"
@@ -630,90 +670,16 @@ export function MentorDashboard({
                       </Button>
                     </div>
                   </div>
-                  <div>
-                    <Label>Date</Label>
-                    <Input
-                      type="date"
-                      value={newSession.date}
-                      onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Time</Label>
-                    <Input
-                      value={newSession.time}
-                      onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
-                      placeholder="e.g., 6:00 PM EST"
-                    />
-                  </div>
-                  <div>
-                    <Label>Duration</Label>
-                    <Input
-                      value={newSession.duration}
-                      onChange={(e) => setNewSession({ ...newSession, duration: e.target.value })}
-                      placeholder="e.g., 90 minutes"
-                    />
-                  </div>
-                  <div>
-                    <Label>Session Type</Label>
-                    <Select
-                      value={newSession.sessionType}
-                      onValueChange={(value: "online" | "physical") => setNewSession({ ...newSession, sessionType: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="online">Online</SelectItem>
-                        <SelectItem value="physical">Physical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {newSession.sessionType === "physical" && (
-                    <div>
-                      <Label>Location</Label>
-                      <Input
-                        value={newSession.location}
-                        onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
-                        placeholder="e.g., Tech Hub, San Francisco"
-                      />
-                    </div>
-                  )}
-                  <div>
-                    <Label>Max Slots</Label>
-                    <Input
-                      type="number"
-                      value={newSession.maxSlots}
-                      onChange={(e) => setNewSession({ ...newSession, maxSlots: e.target.value })}
-                      placeholder="e.g., 50"
-                    />
-                  </div>
+
                   <div>
                     <Label>Topics (comma-separated)</Label>
                     <Input
                       value={newSession.topics}
                       onChange={(e) => setNewSession({ ...newSession, topics: e.target.value })}
                       placeholder="e.g., React, Hooks, State Management"
-                      className="mb-2"
                     />
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {['React', 'Node.js', 'System Design', 'Cloud', 'AI', 'Career Hacks'].map(tag => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            const current = newSession.topics.split(',').map(t => t.trim()).filter(Boolean);
-                            if (!current.includes(tag)) {
-                              setNewSession({ ...newSession, topics: [...current, tag].join(', ') });
-                            }
-                          }}
-                          className="text-[10px] bg-primary/10 hover:bg-primary/20 text-primary px-2 py-0.5 rounded-full transition-colors"
-                        >
-                          + {tag}
-                        </button>
-                      ))}
-                    </div>
                   </div>
+
                   <Button
                     onClick={handleAddSessionClick}
                     className="w-full"
@@ -721,11 +687,6 @@ export function MentorDashboard({
                   >
                     Create Session
                   </Button>
-                  {sessionSpeakers.length === 0 && (
-                    <p className="text-xs text-muted-foreground text-center">
-                      Please add at least one speaker
-                    </p>
-                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -748,7 +709,14 @@ export function MentorDashboard({
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {mentorSessions.map((session) => (
-                <Card key={session.id} className="p-6">
+                <Card
+                  key={session.id}
+                  className="p-6 hover:shadow-lg transition-all cursor-pointer border-transparent hover:border-primary/20 group"
+                  onClick={() => {
+                    setSelectedSessionForParticipants(session);
+                    setIsParticipantsModalOpen(true);
+                  }}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <h4 className="mb-2">{session.title}</h4>
@@ -768,63 +736,40 @@ export function MentorDashboard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeleteSessionClick(session.id)}
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        handleDeleteSessionClick(session.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
-                  <p className="text-muted-foreground mb-4 text-sm">{session.description}</p>
-
-                  {/* Speakers */}
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">{session.speakers.length} Speaker{session.speakers.length > 1 ? 's' : ''}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {session.speakers.map((speaker, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-md px-2 py-1">
-                          <Avatar className="w-6 h-6">
-                            <AvatarImage src={speaker.avatar} />
-                            <AvatarFallback className="text-xs">
-                              {speaker.name.split(' ').map(n => n[0]).join('')}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-xs">{speaker.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <p className="text-muted-foreground mb-4 text-sm line-clamp-2">{session.description}</p>
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
-                      <p className="text-sm">{session.date} at {session.time}</p>
+                      <span className="text-muted-foreground block mb-1">Date & Time</span>
+                      <span>{session.date} at {session.time}</span>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                      <p className="text-sm">{session.duration}</p>
+                      <span className="text-muted-foreground block mb-1">Duration</span>
+                      <span>{session.duration}</span>
                     </div>
                   </div>
-
-                  {session.sessionType === "physical" && session.location && (
-                    <div className="mb-4">
-                      <p className="text-sm text-muted-foreground mb-1">Location</p>
-                      <p className="text-sm">{session.location}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Topics</p>
-                    <div className="flex flex-wrap gap-2">
-                      {session.topics.map((topic, index) => (
-                        <Badge key={index} variant="secondary">
-                          {topic}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div className="flex justify-between items-center pt-4 border-t">
+                    <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
+                      {session.attendees} Participants
+                    </span>
+                    <Button variant="link" size="sm" className="p-0 h-auto">View Details</Button>
                   </div>
                 </Card>
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="availability" className="mt-6">
+          <AvailabilitySettings />
         </TabsContent>
 
         <TabsContent value="experiences" className="mt-6">
@@ -942,23 +887,25 @@ export function MentorDashboard({
           )}
         </TabsContent>
 
-        <TabsContent value="participants" className="mt-6">
-          <SessionParticipants
-            sessionRequests={sessionRequests}
-            sessions={sessions}
-            currentUserId={currentUserId || ""}
-          />
-        </TabsContent>
-
-        <TabsContent value="requests" className="mt-6">
+        <TabsContent value="mentorship-requests" className="mt-6">
           <SessionRequestsManager
             sessionRequests={sessionRequests}
             sessions={sessions}
             currentUserId={currentUserId || ""}
             onRespondToRequest={onRespondToRequest}
+            title="Mentorship Requests"
+            description="Manage personal one-on-one mentorship requests from students"
+            type="mentorship"
           />
         </TabsContent>
       </Tabs>
+
+      <SessionParticipantsModal
+        open={isParticipantsModalOpen}
+        onOpenChange={setIsParticipantsModalOpen}
+        session={selectedSessionForParticipants}
+        requests={sessionRequests}
+      />
     </div>
   );
 }

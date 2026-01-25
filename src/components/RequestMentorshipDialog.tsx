@@ -7,67 +7,90 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, Clock, MessageCircle, Sparkles } from "lucide-react";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { useAuth } from "../contexts/AuthContext";
+import { supabaseService } from "../services/supabaseService";
 
 interface RequestMentorshipDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mentorName: string;
+  mentorId: string;
 }
 
 export function RequestMentorshipDialog({
   open,
   onOpenChange,
   mentorName,
+  mentorId,
 }: RequestMentorshipDialogProps) {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [sessionType, setSessionType] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+
+    if (!user) {
+      toast.error("Please log in to send a request");
+      return;
+    }
 
     // Validate form
     if (!selectedDate || !selectedTime || !sessionType || !message.trim()) {
       toast.error("Please fill in all fields", {
         description: "All fields are required to submit a mentorship request"
       });
-      setIsSubmitting(false);
       return;
     }
 
-    // Simulate submission
-    setTimeout(() => {
-      // Store request in localStorage
-      const requests = JSON.parse(localStorage.getItem("mentorshipRequests") || "[]");
-      const newRequest = {
-        id: Date.now().toString(),
-        mentorName,
-        date: selectedDate.toISOString(),
-        time: selectedTime,
-        sessionType,
-        message,
-        status: "pending",
-        createdAt: new Date().toISOString()
-      };
-      requests.push(newRequest);
-      localStorage.setItem("mentorshipRequests", JSON.stringify(requests));
-
-      toast.success("Request sent successfully!", {
-        description: `Your mentorship request to ${mentorName} has been submitted. You'll hear back soon.`
+    if (message.trim().length < 50) {
+      toast.error("Message too short", {
+        description: "Please provide at least 50 characters about your goals."
       });
-      
-      // Reset form
-      setSelectedDate(undefined);
-      setSelectedTime("");
-      setSessionType("");
-      setMessage("");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const requestData = {
+        mentor_id: mentorId,
+        user_id: user.id,
+        user_name: user.name,
+        user_email: user.email,
+        user_avatar: user.avatar || "",
+        status: "pending",
+        message: message,
+        preferred_date: selectedDate.toLocaleDateString(),
+        preferred_time: selectedTime,
+        mentorship_type: sessionType,
+        session_id: null // Explicitly null for personal mentorship
+      };
+
+      const result = await supabaseService.createSessionRequest(requestData);
+
+      if (result) {
+        toast.success("Request sent successfully!", {
+          description: `Your mentorship request to ${mentorName} has been submitted. You'll hear back soon.`
+        });
+
+        // Reset form
+        setSelectedDate(undefined);
+        setSelectedTime("");
+        setSessionType("");
+        setMessage("");
+        onOpenChange(false);
+      }
+    } catch (error) {
+      console.error("Mentorship request error:", error);
+      toast.error("Failed to send request");
+    } finally {
       setIsSubmitting(false);
-      onOpenChange(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -124,7 +147,7 @@ export function RequestMentorshipDialog({
                   mode="single"
                   selected={selectedDate}
                   onSelect={setSelectedDate}
-                  disabled={(date) => date < new Date()}
+                  disabled={(date: Date) => date < new Date()}
                   initialFocus
                 />
               </PopoverContent>

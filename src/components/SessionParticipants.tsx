@@ -4,9 +4,9 @@ import { Badge } from "./ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
-import { 
-  Users, 
-  Mail, 
+import {
+  Users,
+  Mail,
   Phone,
   Briefcase,
   GraduationCap,
@@ -18,36 +18,8 @@ import {
   Monitor,
   Video
 } from "lucide-react";
+import { Session, SessionRequest } from "../services/supabaseService";
 
-interface Session {
-  id: number;
-  title: string;
-  date: string;
-  time: string;
-  sessionType: "online" | "physical";
-  location?: string;
-  attendees: number;
-  maxSlots?: number;
-  availableSlots?: number;
-  createdBy?: string;
-}
-
-interface SessionRequest {
-  id: string;
-  sessionId: number;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  userAvatar: string;
-  status: "pending" | "accepted" | "rejected";
-  requestedAt: string;
-  updatedAt: string;
-  phone?: string;
-  occupation?: string;
-  experienceLevel?: string;
-  reasonToJoin?: string;
-  expectations?: string;
-}
 
 interface SessionParticipantsProps {
   sessions: Session[];
@@ -55,7 +27,7 @@ interface SessionParticipantsProps {
   currentUserId: string;
 }
 
-export function SessionParticipants({ 
+export function SessionParticipants({
   sessions,
   sessionRequests,
   currentUserId
@@ -68,25 +40,25 @@ export function SessionParticipants({
     .filter((s: any) => {
       // Check if session was created by current user
       if (s.createdBy === currentUserId) return true;
-      
+
       // For mock sessions without proper createdBy, check if user is a speaker
       // This assumes currentUserId might be an email/id that matches speaker name
       if (s.speakers && Array.isArray(s.speakers)) {
-        return s.speakers.some((speaker: any) => 
-          speaker.name === currentUserId || 
+        return s.speakers.some((speaker: any) =>
+          speaker.name === currentUserId ||
           speaker.name === "Sarah Johnson" // Temporary fallback for current mock mentor
         );
       }
-      
+
       return false;
     })
     .map(s => s.id);
-  
+
   // Get accepted participants grouped by session
   const sessionParticipants = mySessionIds.map(sessionId => {
     const session = sessions.find(s => s.id === sessionId);
     const participants = sessionRequests.filter(
-      r => r.sessionId === sessionId && r.status === "accepted"
+      r => String(r.sessionId) === String(sessionId) && (r.status === "accepted" || r.status === "pending")
     );
     return { session, participants };
   }).filter(sp => sp.session && sp.participants.length > 0);
@@ -117,7 +89,7 @@ export function SessionParticipants({
 
   const ParticipantCard = ({ participant }: { participant: SessionRequest }) => {
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-    const hasAdditionalDetails = participant.phone || participant.occupation || 
+    const hasAdditionalDetails = participant.phone || participant.occupation ||
       participant.experienceLevel || participant.reasonToJoin || participant.expectations;
 
     return (
@@ -139,8 +111,12 @@ export function SessionParticipants({
                   <span className="truncate">{participant.userEmail}</span>
                 </div>
               </div>
-              <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
-                Joined
+              <Badge
+                className={participant.status === "accepted"
+                  ? "bg-green-500/10 text-green-600 border-green-500/20"
+                  : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20"}
+              >
+                {participant.status === "accepted" ? "Accepted" : "Pending"}
               </Badge>
             </div>
 

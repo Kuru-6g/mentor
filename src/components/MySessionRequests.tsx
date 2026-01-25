@@ -1,13 +1,15 @@
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
+import { Button } from "./ui/button";
+import {
+  CheckCircle2,
+  XCircle,
+  Clock,
   Calendar,
   Video,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 
 interface Session {
@@ -18,14 +20,17 @@ interface Session {
   time: string;
   sessionType: "online" | "physical";
   location?: string;
+  meetingUrl?: string;
 }
 
 interface SessionRequest {
   id: string;
-  sessionId: number;
+  sessionId: number | string | null;
   userId: string;
   status: "pending" | "accepted" | "rejected";
   requestedAt: string;
+  meetingUrl?: string;
+  mentorMessage?: string;
 }
 
 interface MySessionRequestsProps {
@@ -90,15 +95,15 @@ export function MySessionRequests({ sessionRequests, sessions }: MySessionReques
     <div className="space-y-4">
       <h3 className="mb-4">My Session Requests</h3>
       {sessionRequests.map((request) => {
-        const session = sessions.find(s => s.id === request.sessionId);
-        
+        const session = request.sessionId ? sessions.find(s => s.id === Number(request.sessionId)) : null;
+
         return (
           <Card key={request.id} className="p-6">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex-1">
-                <h4 className="mb-2">{session?.title || "Session"}</h4>
+                <h4 className="mb-2">{session?.title || "Direct Mentorship Request"}</h4>
                 <p className="text-sm text-muted-foreground mb-3">
-                  {session?.description}
+                  {session?.description || "A request for a one-on-one mentorship session."}
                 </p>
 
                 {session && (
@@ -115,8 +120,8 @@ export function MySessionRequests({ sessionRequests, sessions }: MySessionReques
                         <MapPin className="w-4 h-4 text-muted-foreground" />
                       )}
                       <span>
-                        {session.sessionType === "online" 
-                          ? "Online Session" 
+                        {session.sessionType === "online"
+                          ? "Online Session"
                           : session.location || "Physical Session"}
                       </span>
                     </div>
@@ -138,12 +143,25 @@ export function MySessionRequests({ sessionRequests, sessions }: MySessionReques
                 <div className="flex items-start gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
                   <div>
-                    <p className="text-sm">
-                      <span>Your request has been accepted! </span>
-                      <span className="text-muted-foreground">
-                        The mentor will contact you with session details.
-                      </span>
-                    </p>
+                    <div className="text-sm">
+                      <p className="font-semibold text-green-800 dark:text-green-300 mb-1">Your request has been accepted!</p>
+                      {request.mentorMessage ? (
+                        <p className="text-muted-foreground italic mb-2">"{request.mentorMessage}"</p>
+                      ) : (
+                        <p className="text-muted-foreground">The mentor will contact you with session details.</p>
+                      )}
+                    </div>
+                    {(session?.meetingUrl || request.meetingUrl) && (
+                      <Button
+                        size="sm"
+                        className="mt-3 gap-2"
+                        onClick={() => window.open(session?.meetingUrl || request.meetingUrl, '_blank')}
+                      >
+                        <Video className="w-4 h-4" />
+                        Join Jitsi Meeting
+                        <ExternalLink className="w-3 h-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -154,6 +172,10 @@ export function MySessionRequests({ sessionRequests, sessions }: MySessionReques
                 <div className="flex items-start gap-2">
                   <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
                   <div>
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-1">Request not accepted</p>
+                    {request.mentorMessage && (
+                      <p className="text-sm text-muted-foreground italic mb-2">"{request.mentorMessage}"</p>
+                    )}
                     <p className="text-sm text-muted-foreground">
                       Unfortunately, your request was not accepted. You can request to join other sessions.
                     </p>
