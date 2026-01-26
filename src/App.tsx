@@ -161,6 +161,16 @@ function AppContent() {
     }
   };
 
+  const handleUpdateSession = async (sessionId: string | number, updates: Partial<Session>) => {
+    const updatedSession = await supabaseService.updateSession(sessionId, updates);
+    if (updatedSession) {
+      setSessions(sessions.map(s => String(s.id) === String(sessionId) ? updatedSession : s));
+      toast.success("Session updated successfully");
+      return true;
+    }
+    return false;
+  };
+
   const handleRespondToRequest = async (
     requestId: string,
     action: "accept" | "reject",
@@ -321,6 +331,7 @@ function AppContent() {
                   user.role === 'mentor' ? (
                     <MentorDashboard
                       onAddSession={handleAddSession}
+                      onUpdateSession={handleUpdateSession}
                       onDeleteSession={handleDeleteSession}
                       sessions={sessions}
                       sessionRequests={sessionRequests}

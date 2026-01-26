@@ -38,6 +38,7 @@ interface VisitingExperience {
 
 interface MentorDashboardProps {
   onAddSession: (session: Omit<Session, "id" | "attendees" | "availableSlots">) => void;
+  onUpdateSession: (sessionId: string | number, updates: Partial<Session>) => Promise<boolean>;
   onDeleteSession: (sessionId: number | string) => void;
   sessions: Session[];
   sessionRequests: SessionRequest[];
@@ -48,6 +49,7 @@ interface MentorDashboardProps {
 
 export function MentorDashboard({
   onAddSession,
+  onUpdateSession,
   onDeleteSession,
   sessions,
   sessionRequests,
@@ -142,17 +144,21 @@ export function MentorDashboard({
     type: "Certification"
   });
 
+  // Session creation/editing state
+  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
+  const [isEditSessionOpen, setIsEditSessionOpen] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | number | null>(null);
   const [newSession, setNewSession] = useState({
     title: "",
     description: "",
     date: "",
     time: "",
     duration: "",
-    topics: "",
+    maxSlots: 0,
     sessionType: "online" as "online" | "physical",
     location: "",
-    maxSlots: "50",
-    companyName: "",
+    companyName: user?.company || "",
+    topics: "",
     meetingUrl: ""
   });
 
@@ -171,7 +177,6 @@ export function MentorDashboard({
   });
 
   const [isAddAchievementOpen, setIsAddAchievementOpen] = useState(false);
-  const [isAddSessionOpen, setIsAddSessionOpen] = useState(false);
   const [isAddExperienceOpen, setIsAddExperienceOpen] = useState(false);
   const [selectedSessionForParticipants, setSelectedSessionForParticipants] = useState<Session | null>(null);
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
@@ -224,7 +229,7 @@ export function MentorDashboard({
         speakers: sessionSpeakers,
         sessionType: newSession.sessionType,
         location: newSession.sessionType === "physical" ? newSession.location : undefined,
-        maxSlots: parseInt(newSession.maxSlots) || 50,
+        maxSlots: Number(newSession.maxSlots) || 50,
         companyName: newSession.companyName || undefined,
         meetingUrl: newSession.meetingUrl || undefined,
         status: "scheduled"
@@ -238,7 +243,7 @@ export function MentorDashboard({
         topics: "",
         sessionType: "online",
         location: "",
-        maxSlots: "50",
+        maxSlots: 50,
         companyName: "",
         meetingUrl: ""
       });
@@ -247,6 +252,62 @@ export function MentorDashboard({
     }
   };
 
+  const handleEditSession = (session: Session) => {
+    setEditingSessionId(session.id);
+    setNewSession({
+      title: session.title,
+      description: session.description,
+      date: session.date,
+      time: session.time,
+      duration: session.duration,
+      topics: session.topics.join(", "),
+      sessionType: session.sessionType as "online" | "physical",
+      location: session.location || "",
+      maxSlots: session.maxSlots || 50,
+      companyName: session.companyName || "",
+      meetingUrl: session.meetingUrl || ""
+    });
+    setSessionSpeakers(session.speakers);
+    setIsEditSessionOpen(true);
+  };
+
+  const handleUpdateSessionClick = async () => {
+    if (editingSessionId && newSession.title && newSession.description && sessionSpeakers.length > 0) {
+      const success = await onUpdateSession(editingSessionId, {
+        title: newSession.title,
+        description: newSession.description,
+        date: newSession.date,
+        time: newSession.time,
+        duration: newSession.duration,
+        topics: newSession.topics.split(",").map(t => t.trim()),
+        speakers: sessionSpeakers,
+        sessionType: newSession.sessionType,
+        location: newSession.sessionType === "physical" ? newSession.location : undefined,
+        maxSlots: Number(newSession.maxSlots) || 50,
+        companyName: newSession.companyName || undefined,
+        meetingUrl: newSession.meetingUrl || undefined,
+      });
+
+      if (success) {
+        setIsEditSessionOpen(false);
+        setEditingSessionId(null);
+        setNewSession({
+          title: "",
+          description: "",
+          date: "",
+          time: "",
+          duration: "",
+          topics: "",
+          sessionType: "online",
+          location: "",
+          maxSlots: 50,
+          companyName: "",
+          meetingUrl: ""
+        });
+        setSessionSpeakers([]);
+      }
+    }
+  };
   const handleAddSpeaker = () => {
     if (newSpeaker.name) {
       setSessionSpeakers([...sessionSpeakers, {
@@ -549,33 +610,45 @@ export function MentorDashboard({
                   Create Session
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Create New Session</DialogTitle>
                   <DialogDescription>
                     Create a new tech session to share your knowledge with the community.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                  <div>
-                    <Label>Title</Label>
-                    <Input
-                      value={newSession.title}
-                      onChange={(e) => setNewSession({ ...newSession, title: e.target.value })}
-                      placeholder="Session title"
-                    />
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Session Title</Label>
+                      <Input
+                        value={newSession.title}
+                        onChange={(e) => setNewSession({ ...newSession, title: e.target.value })}
+                        placeholder="e.g., Senior Web Development Roadmap"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Company/Organization (Optional)</Label>
+                      <Input
+                        value={newSession.companyName}
+                        onChange={(e) => setNewSession({ ...newSession, companyName: e.target.value })}
+                        placeholder="e.g., Topvoice.lk"
+                      />
+                    </div>
                   </div>
-                  <div>
+
+                  <div className="space-y-2">
                     <Label>Description</Label>
                     <Textarea
                       value={newSession.description}
                       onChange={(e) => setNewSession({ ...newSession, description: e.target.value })}
-                      placeholder="Describe what attendees will learn"
+                      placeholder="What will users learn in this session?"
                       rows={4}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
                       <Label>Date</Label>
                       <Input
                         type="date"
@@ -583,53 +656,54 @@ export function MentorDashboard({
                         onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="space-y-2">
                       <Label>Time</Label>
                       <Input
+                        type="time"
                         value={newSession.time}
                         onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
-                        placeholder="e.g., 6:00 PM EST"
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+                    <div className="space-y-2">
                       <Label>Duration</Label>
                       <Input
                         value={newSession.duration}
                         onChange={(e) => setNewSession({ ...newSession, duration: e.target.value })}
-                        placeholder="e.g., 90 minutes"
+                        placeholder="e.g., 60 mins"
                       />
                     </div>
-                    <div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Session Type</Label>
+                      <Select
+                        value={newSession.sessionType}
+                        onValueChange={(val: "online" | "physical") => setNewSession({ ...newSession, sessionType: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="online">Online (Jitsi Meet)</SelectItem>
+                          <SelectItem value="physical">Physical Location</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label>Max Slots</Label>
                       <Input
                         type="number"
                         value={newSession.maxSlots}
-                        onChange={(e) => setNewSession({ ...newSession, maxSlots: e.target.value })}
-                        placeholder="50"
+                        onChange={(e) => setNewSession({ ...newSession, maxSlots: Number(e.target.value) })}
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label>Session Type</Label>
-                    <Select
-                      value={newSession.sessionType}
-                      onValueChange={(value: "online" | "physical") => setNewSession({ ...newSession, sessionType: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="online">Online</SelectItem>
-                        <SelectItem value="physical">Physical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {newSession.sessionType === "online" && (
+
+                  {newSession.sessionType === "online" ? (
                     <div className="space-y-2">
                       <Label className="flex justify-between">
-                        Meeting Link
+                        Meeting URL
                         <button
                           type="button"
                           onClick={generateJitsiLink}
@@ -638,20 +712,21 @@ export function MentorDashboard({
                           <Zap className="w-3 h-3" /> Generate Free Jitsi Link
                         </button>
                       </Label>
-                      <Input
-                        value={newSession.meetingUrl}
-                        onChange={(e) => setNewSession({ ...newSession, meetingUrl: e.target.value })}
-                        placeholder="https://meet.jit.si/your-room"
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          value={newSession.meetingUrl}
+                          onChange={(e) => setNewSession({ ...newSession, meetingUrl: e.target.value })}
+                          placeholder="https://meet.jit.si/your-room"
+                        />
+                      </div>
                     </div>
-                  )}
-                  {newSession.sessionType === "physical" && (
-                    <div>
+                  ) : (
+                    <div className="space-y-2">
                       <Label>Location</Label>
                       <Input
                         value={newSession.location}
                         onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
-                        placeholder="e.g., Tech Hub, San Francisco"
+                        placeholder="e.g., Colombo, Sri Lanka"
                       />
                     </div>
                   )}
@@ -727,6 +802,201 @@ export function MentorDashboard({
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Session Dialog */}
+            <Dialog open={isEditSessionOpen} onOpenChange={setIsEditSessionOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Edit Tech Session</DialogTitle>
+                  <DialogDescription>
+                    Update the details of your technical session.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Session Title</Label>
+                      <Input
+                        value={newSession.title}
+                        onChange={(e) => setNewSession({ ...newSession, title: e.target.value })}
+                        placeholder="e.g., Senior Web Development Roadmap"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Company/Organization (Optional)</Label>
+                      <Input
+                        value={newSession.companyName}
+                        onChange={(e) => setNewSession({ ...newSession, companyName: e.target.value })}
+                        placeholder="e.g., Topvoice.lk"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={newSession.description}
+                      onChange={(e) => setNewSession({ ...newSession, description: e.target.value })}
+                      placeholder="What will users learn in this session?"
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={newSession.date}
+                        onChange={(e) => setNewSession({ ...newSession, date: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Time</Label>
+                      <Input
+                        type="time"
+                        value={newSession.time}
+                        onChange={(e) => setNewSession({ ...newSession, time: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Duration</Label>
+                      <Input
+                        value={newSession.duration}
+                        onChange={(e) => setNewSession({ ...newSession, duration: e.target.value })}
+                        placeholder="e.g., 60 mins"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Session Type</Label>
+                      <Select
+                        value={newSession.sessionType}
+                        onValueChange={(val: "online" | "physical") => setNewSession({ ...newSession, sessionType: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="online">Online (Jitsi Meet)</SelectItem>
+                          <SelectItem value="physical">Physical Location</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Max Slots</Label>
+                      <Input
+                        type="number"
+                        value={newSession.maxSlots}
+                        onChange={(e) => setNewSession({ ...newSession, maxSlots: Number(e.target.value) })}
+                      />
+                    </div>
+                  </div>
+
+                  {newSession.sessionType === "online" ? (
+                    <div className="space-y-2">
+                      <Label className="flex justify-between">
+                        Meeting URL
+                        <button
+                          type="button"
+                          onClick={generateJitsiLink}
+                          className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Zap className="w-3 h-3" /> Generate Free Jitsi Link
+                        </button>
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newSession.meetingUrl}
+                          onChange={(e) => setNewSession({ ...newSession, meetingUrl: e.target.value })}
+                          placeholder="https://meet.jit.si/your-room"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Location</Label>
+                      <Input
+                        value={newSession.location}
+                        onChange={(e) => setNewSession({ ...newSession, location: e.target.value })}
+                        placeholder="e.g., Colombo, Sri Lanka"
+                      />
+                    </div>
+                  )}
+
+                  <div className="border rounded-lg p-4 bg-muted/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label>Speakers ({sessionSpeakers.length})</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddCurrentMentorAsSpeaker}
+                      >
+                        <UserPlus className="w-3 h-3 mr-1" />
+                        Add Me
+                      </Button>
+                    </div>
+
+                    {sessionSpeakers.length > 0 && (
+                      <div className="space-y-2 mb-3">
+                        {sessionSpeakers.map((speaker, idx) => (
+                          <div key={idx} className="flex items-center gap-2 bg-background p-2 rounded-md">
+                            <span className="text-sm truncate flex-1">{speaker.name}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveSpeaker(idx)}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Speaker name"
+                        value={newSpeaker.name}
+                        onChange={(e) => setNewSpeaker({ ...newSpeaker, name: e.target.value })}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="w-full"
+                        onClick={handleAddSpeaker}
+                        disabled={!newSpeaker.name}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add Speaker
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Topics (comma-separated)</Label>
+                    <Input
+                      value={newSession.topics}
+                      onChange={(e) => setNewSession({ ...newSession, topics: e.target.value })}
+                      placeholder="e.g., React, Hooks, State Management"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleUpdateSessionClick}
+                    className="w-full"
+                    disabled={!newSession.title || !newSession.description || sessionSpeakers.length === 0}
+                  >
+                    Save Changes
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {mentorSessions.length === 0 ? (
@@ -770,17 +1040,28 @@ export function MentorDashboard({
                         )}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        handleDeleteSessionClick(session.id);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleEditSession(session);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          handleDeleteSessionClick(session.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-muted-foreground mb-4 text-sm line-clamp-2">{session.description}</p>
                   <div className="grid grid-cols-2 gap-4 mb-4 text-sm">

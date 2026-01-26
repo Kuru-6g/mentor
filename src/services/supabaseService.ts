@@ -435,12 +435,26 @@ export const supabaseService = {
 
   async updateSession(sessionId: string | number, updates: any) {
     // Map updates to snake_case
-    const dbUpdates: any = {};
-    if (updates.attendees !== undefined) dbUpdates.attendees = updates.attendees;
-    if (updates.availableSlots !== undefined) dbUpdates.available_slots = updates.availableSlots;
-    if (updates.status !== undefined) dbUpdates.status = updates.status;
-    if (updates.title !== undefined) dbUpdates.title = updates.title;
-    // Add more as needed...
+    const dbUpdates: any = {
+      title: updates.title,
+      description: updates.description,
+      speakers: updates.speakers,
+      date: updates.date,
+      time: updates.time,
+      duration: updates.duration,
+      topics: updates.topics,
+      attendees: updates.attendees,
+      session_type: updates.sessionType,
+      location: updates.location,
+      max_slots: updates.maxSlots,
+      available_slots: updates.availableSlots,
+      company_name: updates.companyName,
+      meeting_url: updates.meetingUrl,
+      status: updates.status,
+    };
+
+    // Remove undefined values
+    Object.keys(dbUpdates).forEach(key => dbUpdates[key] === undefined && delete dbUpdates[key]);
 
     const { data, error } = await supabase
       .from(tables.sessions)
