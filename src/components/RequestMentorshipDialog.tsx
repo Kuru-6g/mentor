@@ -8,8 +8,10 @@ import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, Clock, MessageCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabaseService } from "../services/supabaseService";
+import { UserProfile, supabaseService } from "../services/supabaseService";
 
 interface RequestMentorshipDialogProps {
   open: boolean;
@@ -25,11 +27,62 @@ export function RequestMentorshipDialog({
   mentorId,
 }: RequestMentorshipDialogProps) {
   const { user } = useAuth();
+  const [mentorProfile, setMentorProfile] = useState<UserProfile | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string>("");
   const [sessionType, setSessionType] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  // Fetch mentor profile on open
+  useEffect(() => {
+    if (open && mentorId) {
+      const fetchMentorProfile = async () => {
+        setIsLoadingProfile(true);
+        const profile = await supabaseService.getProfile(mentorId);
+        setMentorProfile(profile);
+        setIsLoadingProfile(false);
+      };
+      fetchMentorProfile();
+    }
+  }, [open, mentorId]);
+
+  // Generate time slots based on availability
+  const generateAvailableSlots = useCallback((date: Date) => {
+    if (!mentorProfile?.availability) return [];
+
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayName = days[date.getDay()];
+    const dayConfig = mentorProfile.availability[dayName];
+
+    if (!dayConfig || !dayConfig.enabled) return [];
+
+    const startTimeIndex = TIME_SLOTS.indexOf(dayConfig.startTime);
+    const endTimeIndex = TIME_SLOTS.indexOf(dayConfig.endTime);
+
+    if (startTimeIndex === -1 || endTimeIndex === -1) return [];
+
+    return TIME_SLOTS.slice(startTimeIndex, endTimeIndex + 1);
+  }, [mentorProfile]);
+
+  // Update slots when date changes
+  useEffect(() => {
+    if (selectedDate) {
+      const slots = generateAvailableSlots(selectedDate);
+      setAvailableSlots(slots);
+      setSelectedTime(""); // Reset time when date changes
+    } else {
+      setAvailableSlots([]);
+    }
+  }, [selectedDate, generateAvailableSlots]);
+
+  const TIME_SLOTS = [
+    "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+    "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM",
+    "06:00 PM", "07:00 PM", "08:00 PM", "09:00 PM"
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,26 +209,38 @@ export function RequestMentorshipDialog({
 
           {/* Preferred Time */}
           <div className="space-y-2">
-            <Label htmlFor="time" className="text-foreground">Preferred Time *</Label>
-            <Select value={selectedTime} onValueChange={setSelectedTime}>
+            <Label htmlFor="time" className="text-foreground flex justify-between items-center">
+              <span>Preferred Time *</span>
+              {selectedDate && !isLoadingProfile && availableSlots.length === 0 && (
+                <span className="text-[10px] bg-destructive/10 text-destructive px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                  Not Available on this day
+                </span>
+              )}
+            </Label>
+            <Select
+              value={selectedTime}
+              onValueChange={setSelectedTime}
+              disabled={!selectedDate || availableSlots.length === 0 || isLoadingProfile}
+            >
               <SelectTrigger id="time" className="border-border hover:border-primary/50 focus:border-primary transition-colors">
-                <SelectValue placeholder="Select time" />
+                <SelectValue placeholder={
+                  isLoadingProfile ? "Loading availability..." :
+                    !selectedDate ? "Pick a date first" :
+                      availableSlots.length === 0 ? "Mentor is unavailable" : "Select time"
+                } />
               </SelectTrigger>
               <SelectContent className="border-primary/20">
-                <SelectItem value="9:00 AM">9:00 AM</SelectItem>
-                <SelectItem value="10:00 AM">10:00 AM</SelectItem>
-                <SelectItem value="11:00 AM">11:00 AM</SelectItem>
-                <SelectItem value="12:00 PM">12:00 PM</SelectItem>
-                <SelectItem value="1:00 PM">1:00 PM</SelectItem>
-                <SelectItem value="2:00 PM">2:00 PM</SelectItem>
-                <SelectItem value="3:00 PM">3:00 PM</SelectItem>
-                <SelectItem value="4:00 PM">4:00 PM</SelectItem>
-                <SelectItem value="5:00 PM">5:00 PM</SelectItem>
-                <SelectItem value="6:00 PM">6:00 PM</SelectItem>
-                <SelectItem value="7:00 PM">7:00 PM</SelectItem>
-                <SelectItem value="8:00 PM">8:00 PM</SelectItem>
+                {availableSlots.map(time => (
+                  <SelectItem key={time} value={time}>{time}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {selectedDate && availableSlots.length > 0 && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+                <Clock className="w-3 h-3 text-primary" />
+                Available from {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.startTime} to {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.endTime}
+              </p>
+            )}
           </div>
 
           {/* Message */}

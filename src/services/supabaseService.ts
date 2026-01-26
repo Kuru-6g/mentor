@@ -114,6 +114,7 @@ export const supabaseService = {
       goals: data.goals,
       achievements: data.achievements,
       profileCompleted: data.profile_completed,
+      availability: data.availability,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     } as UserProfile;
@@ -155,6 +156,7 @@ export const supabaseService = {
       goals: m.goals,
       achievements: m.achievements,
       profileCompleted: m.profile_completed,
+      availability: m.availability,
       createdAt: m.created_at,
       updatedAt: m.updated_at,
     })) as UserProfile[];
@@ -227,6 +229,7 @@ export const supabaseService = {
         goals: d.goals,
         achievements: d.achievements,
         profileCompleted: d.profile_completed,
+        availability: d.availability,
         createdAt: d.created_at,
         updatedAt: d.updated_at,
       } as UserProfile;
@@ -300,6 +303,7 @@ export const supabaseService = {
       goals: data.goals,
       achievements: data.achievements,
       profileCompleted: data.profile_completed,
+      availability: data.availability,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     } as UserProfile;

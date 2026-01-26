@@ -292,7 +292,7 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                                                 const session = sessions.find(s => String(s.id) === String(request.sessionId));
                                                 return (
                                                     <tr key={request.id} className="hover:bg-muted/30 transition-colors group">
-                                                        <td className="px-6 py-5">
+                                                        <td className="px-6 py-8">
                                                             <div className="flex flex-col">
                                                                 <span className="font-bold text-base group-hover:text-primary transition-colors leading-tight">
                                                                     {session ? session.title : (
@@ -303,24 +303,24 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                                                                     )}
                                                                 </span>
                                                                 {!session && (
-                                                                    <span className="text-xs font-semibold text-muted-foreground capitalize mt-1 px-2 py-0.5 bg-primary/5 rounded-md w-fit">
+                                                                    <span className="text-xs font-semibold text-muted-foreground capitalize mt-1.5 px-2 py-0.5 bg-primary/5 rounded-md w-fit">
                                                                         {request.mentorshipType?.replace(/-/g, ' ') || "One-on-one"}
                                                                     </span>
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-5">
+                                                        <td className="px-6 py-8">
                                                             <div className="flex flex-col">
                                                                 <span className="text-sm font-medium text-foreground">
                                                                     {session ? session.date : request.preferredDate || "Not scheduled"}
                                                                 </span>
-                                                                <span className="text-xs text-muted-foreground">
+                                                                <span className="text-xs text-muted-foreground mt-1">
                                                                     {session ? session.time : request.preferredTime || "—"}
                                                                 </span>
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-5">
-                                                            <div className="flex flex-col gap-2">
+                                                        <td className="px-6 py-8">
+                                                            <div className="flex flex-col gap-3">
                                                                 <Badge className="w-fit font-bold rounded-full px-3" variant={
                                                                     request.status === 'accepted' ? 'success' as any :
                                                                         request.status === 'rejected' ? 'destructive' : 'secondary'
@@ -328,18 +328,18 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                                                                     {request.status}
                                                                 </Badge>
                                                                 {request.mentorMessage && (
-                                                                    <div className="max-w-[200px] p-2 bg-primary/5 rounded-xl border border-primary/10 text-xs text-muted-foreground italic relative group/tooltip">
-                                                                        <p className="truncate group-hover/tooltip:whitespace-normal group-hover/tooltip:overflow-visible">"{request.mentorMessage}"</p>
+                                                                    <div className="max-w-[280px] p-3 bg-primary/5 rounded-xl border border-primary/10 text-xs text-muted-foreground italic relative group/tooltip shadow-sm">
+                                                                        <p className="line-clamp-2 md:line-clamp-none">"{request.mentorMessage}"</p>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="px-6 py-5 text-right">
+                                                        <td className="px-6 py-8 text-right">
                                                             <div className="flex justify-end items-center gap-2">
                                                                 {(request.status === 'accepted') && (session?.meetingUrl || request.meetingUrl) && (
                                                                     <Button
                                                                         size="sm"
-                                                                        className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-white shadow-md shadow-primary/20 hover:scale-105 transition-transform"
+                                                                        className="rounded-full bg-gradient-to-r from-primary to-primary/80 text-white shadow-md shadow-primary/20 hover:scale-105 transition-transform px-5"
                                                                         onClick={() => window.open(session?.meetingUrl || request.meetingUrl, '_blank')}
                                                                     >
                                                                         <LinkIcon className="w-3.5 h-3.5 mr-1.5" />
@@ -347,12 +347,12 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                                                                     </Button>
                                                                 )}
                                                                 {request.status === 'accepted' && !(session?.meetingUrl || request.meetingUrl) && (
-                                                                    <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/20 font-bold px-3">
+                                                                    <Badge variant="outline" className="rounded-full bg-primary/5 text-primary border-primary/20 font-bold px-4 py-1">
                                                                         Scheduled
                                                                     </Badge>
                                                                 )}
                                                                 {request.status === 'pending' && (
-                                                                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                                                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-full">
                                                                         <Clock className="w-3 h-3" />
                                                                         Reviewing
                                                                     </span>
