@@ -109,7 +109,7 @@ export function AvailabilitySettings() {
 
                     return (
                         <Card key={day} className={`p-4 transition-all ${dayData.enabled ? 'border-primary/20 bg-primary/5' : 'opacity-60'}`}>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <Switch
                                         id={`day-${dayKey}`}
@@ -120,38 +120,38 @@ export function AvailabilitySettings() {
                                         {day}
                                     </Label>
                                     {dayData.enabled ? (
-                                        <Badge variant="success" className="bg-green-500/10 text-green-600 border-green-500/20">Available</Badge>
+                                        <Badge variant="success" className="bg-green-500/10 text-green-600 border-green-500/20 text-[10px] sm:text-xs">Available</Badge>
                                     ) : (
-                                        <Badge variant="secondary" className="bg-muted text-muted-foreground">Unavailable</Badge>
+                                        <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] sm:text-xs">Unavailable</Badge>
                                     )}
                                 </div>
 
                                 {dayData.enabled && (
-                                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-2 duration-300">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <div className="flex items-center gap-2 sm:gap-3 animate-in fade-in slide-in-from-left-2 duration-300">
+                                        <div className="flex items-center gap-1.5 sm:gap-2">
+                                            <Clock className="w-3.5 h-3.5 text-muted-foreground hidden xs:block" />
                                             <Select
                                                 value={dayData.startTime}
                                                 onValueChange={(val: string) => handleTimeChange(dayKey, 'startTime', val)}
                                             >
-                                                <SelectTrigger className="w-[120px] h-9 bg-background">
+                                                <SelectTrigger className="w-[105px] sm:w-[120px] h-8 sm:h-9 bg-background text-xs sm:text-sm">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                    {TIME_SLOTS.map(t => <SelectItem key={t} value={t} className="text-xs sm:text-sm">{t}</SelectItem>)}
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <span className="text-muted-foreground">to</span>
+                                        <span className="text-muted-foreground text-xs">to</span>
                                         <Select
                                             value={dayData.endTime}
                                             onValueChange={(val: string) => handleTimeChange(dayKey, 'endTime', val)}
                                         >
-                                            <SelectTrigger className="w-[120px] h-9 bg-background">
+                                            <SelectTrigger className="w-[105px] sm:w-[120px] h-8 sm:h-9 bg-background text-xs sm:text-sm">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {TIME_SLOTS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                {TIME_SLOTS.map(t => <SelectItem key={t} value={t} className="text-xs sm:text-sm">{t}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                     </div>

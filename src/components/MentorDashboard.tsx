@@ -126,16 +126,14 @@ export function MentorDashboard({
     s.createdBy === user?.id || s.speakers.some(speaker => speaker.name === user?.name)
   );
 
-  const [visitingExperiences, setVisitingExperiences] = useState<VisitingExperience[]>([
-    {
-      id: 1,
-      menteeName: "Alex Martinez",
-      menteeAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop",
-      date: "September 2024",
-      description: "Guided Alex through a career transition from marketing to software development. Covered fundamentals of web development and helped prepare for technical interviews.",
-      topics: ["Career Change", "Web Development", "Interview Prep"]
+  const [visitingExperiences, setVisitingExperiences] = useState<VisitingExperience[]>(user?.experiences || []);
+
+  // Update experiences when user changes
+  useEffect(() => {
+    if (user?.experiences) {
+      setVisitingExperiences(user.experiences);
     }
-  ]);
+  }, [user]);
 
   const [newAchievement, setNewAchievement] = useState({
     title: "",
@@ -282,24 +280,63 @@ export function MentorDashboard({
     toast.success("Jitsi Meet link generated!");
   };
 
-  const handleAddExperience = () => {
+  const handleAddExperience = async () => {
     if (newExperience.menteeName && newExperience.description) {
-      setVisitingExperiences([
+      if (!user) return;
+
+      setIsLoading(true);
+      const updatedExperiences = [
         ...visitingExperiences,
         {
-          ...newExperience,
-          id: visitingExperiences.length + 1,
-          topics: newExperience.topics.split(",").map(t => t.trim()),
+          id: Date.now(),
+          menteeName: newExperience.menteeName,
+          date: newExperience.date,
+          description: newExperience.description,
+          topics: newExperience.topics.split(",").map(t => t.trim()).filter(Boolean),
           menteeAvatar: ""
         }
-      ]);
-      setNewExperience({ menteeName: "", date: "", description: "", topics: "" });
-      setIsAddExperienceOpen(false);
+      ];
+
+      try {
+        const result = await supabaseService.updateProfile(user.id, {
+          experiences: updatedExperiences
+        });
+        if (result) {
+          setVisitingExperiences(updatedExperiences);
+          toast.success("Experience added successfully");
+          await refreshUser();
+          setNewExperience({ menteeName: "", date: "", description: "", topics: "" });
+          setIsAddExperienceOpen(false);
+        }
+      } catch (error) {
+        console.error("Add experience error:", error);
+        toast.error("Failed to add experience");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
-  const handleDeleteExperience = (id: number) => {
-    setVisitingExperiences(visitingExperiences.filter(e => e.id !== id));
+  const handleDeleteExperience = async (id: number) => {
+    if (!user) return;
+    const updatedExperiences = visitingExperiences.filter(e => e.id !== id);
+
+    setIsLoading(true);
+    try {
+      const result = await supabaseService.updateProfile(user.id, {
+        experiences: updatedExperiences
+      });
+      if (result) {
+        setVisitingExperiences(updatedExperiences);
+        toast.success("Experience deleted");
+        await refreshUser();
+      }
+    } catch (error) {
+      console.error("Delete experience error:", error);
+      toast.error("Failed to delete experience");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDeleteAchievement = async (id: number) => {
@@ -333,8 +370,8 @@ export function MentorDashboard({
         </p>
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="grid w-full grid-cols-6 max-w-4xl">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="flex w-full overflow-x-auto justify-start h-auto p-1 bg-muted/50 scrollbar-hide">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>

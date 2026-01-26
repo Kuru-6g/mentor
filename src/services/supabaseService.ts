@@ -24,6 +24,7 @@ export interface UserProfile {
   achievements?: any[];
   profileCompleted?: boolean;
   availability?: any;
+  experiences?: any[];
   createdAt: string;
   updatedAt: string;
 }
@@ -157,6 +158,7 @@ export const supabaseService = {
       achievements: m.achievements,
       profileCompleted: m.profile_completed,
       availability: m.availability,
+      experiences: m.experiences || [],
       createdAt: m.created_at,
       updatedAt: m.updated_at,
     })) as UserProfile[];
@@ -183,6 +185,7 @@ export const supabaseService = {
       goals: profile.goals,
       achievements: profile.achievements,
       profile_completed: profile.profileCompleted,
+      experiences: profile.experiences,
       updated_at: new Date().toISOString(),
       // If created_at is not auto-managed by DB, uncomment next line
       // created_at: new Date().toISOString(), 
@@ -230,6 +233,7 @@ export const supabaseService = {
         achievements: d.achievements,
         profileCompleted: d.profile_completed,
         availability: d.availability,
+        experiences: d.experiences || [],
         createdAt: d.created_at,
         updatedAt: d.updated_at,
       } as UserProfile;
@@ -264,6 +268,7 @@ export const supabaseService = {
       achievements: updates.achievements,
       profile_completed: updates.profileCompleted,
       availability: updates.availability,
+      experiences: updates.experiences,
       updated_at: new Date().toISOString(),
     };
 

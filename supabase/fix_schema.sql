@@ -14,6 +14,7 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "goals" TEXT;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "achievements" JSONB DEFAULT '[]';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "profile_completed" BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "availability" JSONB DEFAULT 'null';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS "experiences" JSONB DEFAULT '[]';
 
 -- 2. Ensure RLS policies include INSERT if needed (though handle_new_user should have created the row)
 DO $$ 
