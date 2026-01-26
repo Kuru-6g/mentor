@@ -9,7 +9,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Plus, Edit, Trash2, Calendar, Award, Video, Users2, MapPin, Monitor, UserPlus, X, Inbox, Users, Zap } from "lucide-react";
+import { Plus, Edit, Trash2, Calendar, Award, Video, Users2, MapPin, Monitor, UserPlus, X, Inbox, Users, Zap, Clock } from "lucide-react";
 import { SessionRequestsManager } from "./SessionRequestsManager";
 import { SessionParticipants } from "./SessionParticipants";
 import { SessionParticipantsModal } from "./SessionParticipantsModal";
@@ -757,9 +757,26 @@ export function MentorDashboard({
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-4 border-t">
-                    <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
-                      {session.attendees} Participants
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">
+                        {(() => {
+                          const participants = sessionRequests.filter(r => String(r.sessionId) === String(session.id) && (r.status === "accepted" || r.status === "pending"));
+                          const pendingCount = participants.filter(p => p.status === "pending").length;
+                          const acceptedCount = participants.filter(p => p.status === "accepted").length;
+                          return (
+                            <span className="flex items-center gap-2">
+                              {acceptedCount} Joined
+                              {pendingCount > 0 && (
+                                <span className="flex items-center gap-1 text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded-full border border-yellow-200">
+                                  <Clock className="w-3 h-3" />
+                                  {pendingCount} Pending
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </span>
+                    </div>
                     <Button variant="link" size="sm" className="p-0 h-auto">View Details</Button>
                   </div>
                 </Card>
@@ -905,6 +922,7 @@ export function MentorDashboard({
         onOpenChange={setIsParticipantsModalOpen}
         session={selectedSessionForParticipants}
         requests={sessionRequests}
+        onRespondToRequest={onRespondToRequest}
       />
     </div>
   );

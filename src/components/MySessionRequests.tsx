@@ -12,26 +12,7 @@ import {
   ExternalLink
 } from "lucide-react";
 
-interface Session {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  sessionType: "online" | "physical";
-  location?: string;
-  meetingUrl?: string;
-}
-
-interface SessionRequest {
-  id: string;
-  sessionId: number | string | null;
-  userId: string;
-  status: "pending" | "accepted" | "rejected";
-  requestedAt: string;
-  meetingUrl?: string;
-  mentorMessage?: string;
-}
+import { Session, SessionRequest } from "../services/supabaseService";
 
 interface MySessionRequestsProps {
   sessionRequests: SessionRequest[];

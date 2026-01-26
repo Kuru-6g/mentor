@@ -355,6 +355,7 @@ export const supabaseService = {
       maxSlots: s.max_slots,
       availableSlots: s.available_slots,
       companyName: s.company_name,
+      meetingUrl: s.meeting_url,
       createdBy: s.created_by,
       status: s.status,
     }));
@@ -421,6 +422,7 @@ export const supabaseService = {
       maxSlots: data.max_slots,
       availableSlots: data.available_slots,
       companyName: data.company_name,
+      meetingUrl: data.meeting_url,
       createdBy: data.created_by,
       status: data.status,
     };
@@ -466,6 +468,7 @@ export const supabaseService = {
       maxSlots: data.max_slots,
       availableSlots: data.available_slots,
       companyName: data.company_name,
+      meetingUrl: data.meeting_url,
       createdBy: data.created_by,
       status: data.status,
     };

@@ -62,7 +62,7 @@ function AppContent() {
     };
 
     loadInitialData();
-  }, []);
+  }, [user?.id]);
 
   const handleAddSession = async (
     newSession: Omit<

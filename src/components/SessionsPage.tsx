@@ -5,7 +5,7 @@ import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Search, Calendar, Clock, Users, Video, MapPin, Monitor, Building2, Inbox } from "lucide-react";
+import { Search, Calendar, Clock, Users, Video, MapPin, Monitor, Building2, Inbox, CheckCircle2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { MySessionRequests } from "./MySessionRequests";
 import { JoinSessionDialog, JoinSessionFormData } from "./JoinSessionDialog";
@@ -65,10 +65,10 @@ export function SessionsPage({
     }, selectedSession.createdBy);
   };
 
-  const getRequestStatus = (sessionId: number) => {
+  const getRequestStatus = (sessionId: number | string) => {
     if (!currentUserId) return null;
     return sessionRequests.find(
-      r => r.sessionId === sessionId && r.userId === currentUserId
+      r => String(r.sessionId) === String(sessionId) && String(r.userId) === String(currentUserId)
     );
   };
 
@@ -211,12 +211,28 @@ export function SessionsPage({
                           </Button>
                         );
                       } else if (request.status === "accepted") {
+                        const meetingUrl = session.meetingUrl || request.meetingUrl;
                         return (
-                          <Button className="w-full" disabled variant="default">
-                            ✓ Accepted
-                          </Button>
+                          <div className="flex flex-col gap-2 w-full">
+                            <Button className="w-full" disabled variant="default">
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Accepted
+                            </Button>
+                            {session.sessionType === "online" && meetingUrl && (
+                              <Button
+                                className="w-full gap-2 border-primary/20 hover:bg-primary/5 hover:text-primary transition-all shadow-sm"
+                                variant="outline"
+                                onClick={() => window.open(meetingUrl, '_blank')}
+                              >
+                                <Video className="w-4 h-4" />
+                                Join Meeting
+                                <ExternalLink className="w-3 h-3 ml-auto opacity-50" />
+                              </Button>
+                            )}
+                          </div>
                         );
-                      } else if (request.status === "rejected") {
+                      }
+                      else if (request.status === "rejected") {
                         return (
                           <Button className="w-full" disabled variant="destructive">
                             Request Rejected
