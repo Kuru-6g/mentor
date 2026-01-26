@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -41,17 +41,28 @@ interface ProfileSetupProps {
 
 // TODO: Remove onComplete prop in next iteration when App.tsx is fully cleaned up of legacy props
 export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<ProfileSetupProps, 'onComplete'> & { onComplete?: any }) {
-  const { refreshUser } = useAuth();
+  const { refreshUser, session, user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<"role" | "details">("role");
   const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Redirect if profile is already completed
+  useEffect(() => {
+    if (user?.profileCompleted) {
+      if (user.role === 'mentor') {
+        navigate('/dashboard');
+      } else {
+        navigate('/mentors');
+      }
+    }
+  }, [user, navigate]);
+
   // Form state
   const [formData, setFormData] = useState({
-    full_name: initialData.full_name || "",
+    full_name: initialData.full_name || session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name || "",
     bio: initialData.bio || "",
-    avatar_url: "",
+    avatar_url: session?.user?.user_metadata?.avatar_url || session?.user?.user_metadata?.picture || "",
     years_experience: initialData.years_experience?.toString() || "",
     linkedin_url: initialData.linkedin_url || "",
     github_url: initialData.github_url || "",
@@ -224,9 +235,9 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 onSubmit={handleSubmit}
-                className="flex flex-col h-[500px]"
+                className="flex flex-col"
               >
-                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                <div className="max-h-[400px] overflow-y-auto pr-2 space-y-4">
                   {/* Common Fields */}
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -351,7 +362,7 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
                           name="website_url"
                           type="url"
                           placeholder="https://yourwebsite.com"
-                          className="pl-10 w-full"
+                          className="pl-10"
                           value={formData.website_url}
                           onChange={handleInputChange}
                         />
@@ -411,20 +422,20 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
                   )}
                 </div>
 
-                {/* Navigation buttons */}
-                <div className="sticky bottom-0 bg-white dark:bg-card pt-4 border-t mt-4">
-                  <div className="flex gap-3">
+                {/* Navigation buttons - outside scroll container */}
+                <div className="pt-4 border-t mt-4">
+                  <div className="flex flex-col-reverse sm:flex-row gap-3">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => setStep("role")}
-                      className="w-full"
+                      className="flex-1"
                     >
                       Back
                     </Button>
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="flex-1"
                       disabled={isLoading}
                     >
                       {isLoading ? (

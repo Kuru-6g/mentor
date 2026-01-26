@@ -35,7 +35,7 @@ const initialSessions: Session[] = [];
 function AppContent() {
   const [sessions, setSessions] = useState<Session[]>(initialSessions);
   const [sessionRequests, setSessionRequests] = useState<SessionRequest[]>([]);
-  const { user } = useAuth();
+  const { user, session, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -63,6 +63,20 @@ function AppContent() {
 
     loadInitialData();
   }, [user?.id]);
+
+  // Enforce profile completion
+  useEffect(() => {
+    if (!loading && session) {
+      // If logged in, check if profile is complete
+      const needsProfileSetup = !user || !user.profileCompleted;
+      const isSetupPage = location.pathname === '/profile-setup';
+
+      // If profile is incomplete and we're not already on the setup page, redirect
+      if (needsProfileSetup && !isSetupPage) {
+        navigate('/profile-setup');
+      }
+    }
+  }, [loading, session, user, location.pathname, navigate]);
 
   const handleAddSession = async (
     newSession: Omit<
@@ -268,8 +282,8 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <ProfileSetup
-                  userId={user?.id || ''}
-                  userEmail={user?.email || ''}
+                  userId={session?.user?.id || user?.id || ''}
+                  userEmail={session?.user?.email || user?.email || ''}
                   onComplete={() => { }} // Now handled internally in ProfileSetup
                 />
               </ProtectedRoute>
