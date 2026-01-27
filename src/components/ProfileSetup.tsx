@@ -44,7 +44,7 @@ interface ProfileSetupProps {
 
 // TODO: Remove onComplete prop in next iteration when App.tsx is fully cleaned up of legacy props
 export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<ProfileSetupProps, 'onComplete'> & { onComplete?: any }) {
-  const { refreshUser, session, user } = useAuth();
+  const { refreshUser, session, user, loading } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<"role" | "details">("role");
   const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
@@ -58,14 +58,25 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
 
   // Redirect if profile is already completed
   useEffect(() => {
-    if (user?.profileCompleted) {
+    if (!loading && user?.profileCompleted) {
       if (user.role === 'mentor') {
         navigate('/dashboard');
       } else {
         navigate('/mentors');
       }
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
+
+  if (loading || (user?.profileCompleted)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground font-medium">Preparing your experience...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Form state
   const [formData, setFormData] = useState({
