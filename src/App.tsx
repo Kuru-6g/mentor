@@ -376,7 +376,7 @@ function AppContent() {
         </Routes>
       </main>
 
-      {!isAuthPage && <Footer />}
+      {!isAuthPage && <Footer onNavigate={(p) => navigate(`/${p}`)} />}
 
       <BackToTop />
       <Toaster />

@@ -118,7 +118,7 @@ export function PrivacyPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-black text-black py-20">
+      <section className="bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-black py-24">
         <div className="container mx-auto px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -126,67 +126,69 @@ export function PrivacyPage() {
             transition={{ duration: 0.6 }}
             className="max-w-3xl mx-auto text-center"
           >
-            <Badge className="mb-6 bg-black text-yellow-400 hover:bg-black/90">
-              Privacy Policy
+            <Badge className="mb-6 bg-black text-yellow-500 hover:bg-black/90 px-4 py-1 text-sm font-semibold uppercase tracking-wider">
+              Privacy & Transparency
             </Badge>
-            <h1 className="mb-6">Your Privacy Matters</h1>
-            <p className="text-lg text-black/80 leading-relaxed">
-              At Topvoice.lk, we take your privacy seriously. This policy explains how we collect, 
-              use, and protect your personal information.
+            <h1 className="mb-6 text-4xl md:text-6xl font-extrabold tracking-tight">Your Privacy is Our Priority</h1>
+            <p className="text-xl text-black/90 leading-relaxed font-medium">
+              At Topvoice.lk, we are committed to safeguarding your personal data with the highest standards of security and transparency.
             </p>
-            <p className="text-sm text-black/70 mt-4">Last updated: October 4, 2025</p>
+            <p className="text-sm text-black/70 mt-8 font-semibold italic">Last updated: January 27, 2026</p>
           </motion.div>
         </div>
       </section>
 
       {/* Introduction */}
-      <section className="py-16 bg-muted/30">
+      <section className="py-20 bg-muted/20">
         <div className="container mx-auto px-4">
-          <Card className="max-w-4xl mx-auto p-8">
-            <p className="text-muted-foreground leading-relaxed mb-4">
-              This Privacy Policy describes how Topvoice.lk ("we," "us," or "our") collects, uses, and 
-              shares information about you when you use our website and services (collectively, the "Services"). 
-              By using our Services, you agree to the collection and use of information in accordance with this policy.
+          <Card className="max-w-4xl mx-auto p-10 shadow-xl border-none ring-1 ring-black/5">
+            <h2 className="mb-6 text-2xl font-bold">Introduction</h2>
+            <p className="text-muted-foreground leading-relaxed mb-6 text-lg">
+              This Privacy Policy details how Topvoice.lk ("we," "us," or "our") manages the collection, usage, and
+              confidentiality of your information when you interact with our platform and services.
+              By engaging with our platform, you acknowledge and agree to the data practices described herein.
             </p>
-            <p className="text-muted-foreground leading-relaxed">
-              We are committed to protecting your privacy and ensuring you have a positive experience on our 
-              platform. If you have any questions about this Privacy Policy, please contact us at privacy@topvoice.lk.
+            <p className="text-muted-foreground leading-relaxed text-lg">
+              We operate under the principle of data minimization—collecting only what is necessary to empower your professional journey.
+              If you have any inquiries regarding your data, please reach our dedicated privacy team at <a href="mailto:privacy@topvoice.lk" className="text-primary font-semibold hover:underline">privacy@topvoice.lk</a>.
             </p>
           </Card>
         </div>
       </section>
 
       {/* Main Content Sections */}
-      <section className="py-16">
+      <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto space-y-12">
+          <div className="max-w-4xl mx-auto space-y-16">
             {sections.map((section, index) => (
               <motion.div
                 key={index}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
+                transition={{ duration: 0.6, delay: 0.1 }}
                 viewport={{ once: true }}
               >
-                <Card className="p-8">
-                  <div className="flex items-start gap-4 mb-6">
-                    <div className="w-12 h-12 bg-yellow-400 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <section.icon className="w-6 h-6 text-black" />
-                    </div>
+                <div className="flex flex-col md:flex-row gap-8 items-start">
+                  <div className="w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-yellow-400/20">
+                    <section.icon className="w-8 h-8 text-black" />
+                  </div>
+                  <div className="flex-1 space-y-8">
                     <div>
-                      <h2 className="mb-2">{section.title}</h2>
+                      <h2 className="text-3xl font-bold mb-4 tracking-tight">{section.title}</h2>
+                      <div className="h-1.5 w-20 bg-yellow-400 rounded-full"></div>
+                    </div>
+
+                    <div className="grid gap-10">
+                      {section.content.map((item, idx) => (
+                        <div key={idx} className="group">
+                          <h3 className="text-xl font-bold mb-3 transition-colors group-hover:text-primary">{item.subtitle}</h3>
+                          <p className="text-muted-foreground leading-relaxed text-lg">{item.text}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-
-                  <div className="space-y-6 ml-16">
-                    {section.content.map((item, idx) => (
-                      <div key={idx}>
-                        <h3 className="mb-2">{item.subtitle}</h3>
-                        <p className="text-muted-foreground leading-relaxed">{item.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
+                </div>
+                {index !== sections.length - 1 && <div className="mt-16 border-b border-muted/50 w-full" />}
               </motion.div>
             ))}
           </div>
@@ -199,12 +201,12 @@ export function PrivacyPage() {
           <Card className="max-w-4xl mx-auto p-8">
             <h2 className="mb-4">Children's Privacy</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              Our Services are not intended for users under the age of 18. We do not knowingly collect 
-              personal information from children under 18. If you are a parent or guardian and believe 
+              Our Services are not intended for users under the age of 18. We do not knowingly collect
+              personal information from children under 18. If you are a parent or guardian and believe
               your child has provided us with personal information, please contact us immediately.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              If we become aware that we have collected personal information from a child under 18 without 
+              If we become aware that we have collected personal information from a child under 18 without
               verification of parental consent, we will take steps to remove that information from our servers.
             </p>
           </Card>
@@ -217,15 +219,15 @@ export function PrivacyPage() {
           <Card className="max-w-4xl mx-auto p-8">
             <h2 className="mb-4">Changes to This Privacy Policy</h2>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              We may update our Privacy Policy from time to time. We will notify you of any changes by 
+              We may update our Privacy Policy from time to time. We will notify you of any changes by
               posting the new Privacy Policy on this page and updating the "Last updated" date at the top.
             </p>
             <p className="text-muted-foreground leading-relaxed mb-4">
-              We will also notify you via email or through a prominent notice on our platform if there are 
+              We will also notify you via email or through a prominent notice on our platform if there are
               any material changes that affect how we use your personal information.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              You are advised to review this Privacy Policy periodically for any changes. Changes to this 
+              You are advised to review this Privacy Policy periodically for any changes. Changes to this
               Privacy Policy are effective when they are posted on this page.
             </p>
           </Card>
@@ -238,7 +240,7 @@ export function PrivacyPage() {
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="mb-4">Questions About Privacy?</h2>
             <p className="text-lg text-black/80 mb-6 leading-relaxed">
-              If you have any questions or concerns about our Privacy Policy or how we handle your data, 
+              If you have any questions or concerns about our Privacy Policy or how we handle your data,
               please don't hesitate to reach out.
             </p>
             <div className="space-y-2">
