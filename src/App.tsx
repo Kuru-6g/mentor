@@ -64,19 +64,6 @@ function AppContent() {
     loadInitialData();
   }, [user?.id]);
 
-  // Enforce profile completion
-  useEffect(() => {
-    if (!loading && session) {
-      // If logged in, check if profile is complete
-      const needsProfileSetup = !user || !user.profileCompleted;
-      const isSetupPage = location.pathname === '/profile-setup';
-
-      // If profile is incomplete and we're not already on the setup page, redirect
-      if (needsProfileSetup && !isSetupPage) {
-        navigate('/profile-setup');
-      }
-    }
-  }, [loading, session, user, location.pathname, navigate]);
 
   const handleAddSession = async (
     newSession: Omit<
