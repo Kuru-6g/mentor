@@ -19,7 +19,8 @@ import {
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import { supabaseService } from "../services/supabaseService";
+import { supabase } from "../lib/supabaseClient";
+import { supabaseService, UserProfile } from "../services/supabaseService";
 import { useNavigate } from "react-router-dom";
 
 interface ProfileSetupProps {
@@ -35,6 +36,8 @@ interface ProfileSetupProps {
     website_url?: string;
     interests?: string[];
     current_role?: string;
+    company?: string;
+    location?: string;
     goals?: string;
   };
 }
@@ -46,6 +49,12 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
   const [step, setStep] = useState<"role" | "details">("role");
   const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Debug: Check for unmounts
+  useEffect(() => {
+    console.log("ProfileSetup MOUNTED");
+    return () => console.log("ProfileSetup UNMOUNTED");
+  }, []);
 
   // Redirect if profile is already completed
   useEffect(() => {
@@ -70,6 +79,8 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
     expertise: "",
     interests: initialData.interests?.join(", ") || "",
     current_role: initialData.current_role || "",
+    company: initialData.company || "",
+    location: initialData.location || "",
     goals: initialData.goals || "",
   });
 
@@ -89,6 +100,11 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!userId) {
+      toast.error("Session missing. Please log in again.");
+      return;
+    }
+
     // Validation
     if (!formData.full_name.trim()) {
       toast.error("Please enter your full name");
@@ -96,7 +112,7 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
     }
 
     if (userType === "mentor") {
-      if (!formData.years_experience || !formData.bio) {
+      if (!formData.years_experience || !formData.bio || !formData.current_role) {
         toast.error("Please fill in all required mentor fields");
         return;
       }
@@ -124,7 +140,8 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
         website: formData.website_url,
         interests: formData.interests.split(",").map(i => i.trim()).filter(Boolean),
         currentRole: formData.current_role,
-        company: "",
+        company: formData.company,
+        location: formData.location,
         goals: formData.goals,
         profileCompleted: true,
       };
@@ -132,37 +149,36 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
       // Create profile in Supabase
       const profile = await supabaseService.createProfile(profileData);
 
-      if (!profile) {
-        console.error("Profile creation returned null");
-        throw new Error("Failed to create profile. Please check the network or try again.");
-      }
+      // Note: createProfile now throws if it fails, so we don't need to check for null
+      if (profile) {
+        console.log("Profile created successfully:", profile.id);
 
-      console.log("Profile created successfully:", profile.id);
+        // Refresh auth context
+        await refreshUser();
 
-      // Refresh auth context
-      await refreshUser();
+        // Show success message
+        toast.success("Profile setup completed!", {
+          description: `Welcome to Topvoice.lk, ${formData.full_name}!`
+        });
 
-      // Show success message
-      toast.success("Profile setup completed!", {
-        description: `Welcome to Topvoice.lk, ${formData.full_name}!`
-      });
-
-      // Redirect based on role
-      if (userType === "mentor") {
-        navigate("/dashboard");
-      } else {
-        navigate("/mentors");
+        // Redirect based on role
+        if (userType === "mentor") {
+          navigate("/dashboard");
+        } else {
+          navigate("/mentors");
+        }
       }
 
     } catch (error: any) {
       console.error("Profile setup error:", error);
-      toast.error("Failed to complete profile setup", {
-        description: error.message || "Please try again"
+      toast.error(`Setup Failed: ${error.code || ''}`, {
+        description: error.message || "Unknown error occurred"
       });
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-black/5 dark:from-black dark:via-gray-900 dark:to-yellow-900/10 flex items-center justify-center p-4">
@@ -257,21 +273,55 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
                       </div>
                     </div>
 
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="current_role">Job Title / Role *</Label>
+                        <div className="relative">
+                          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="current_role"
+                            name="current_role"
+                            type="text"
+                            placeholder="e.g. Senior Software Engineer"
+                            className="pl-10"
+                            value={formData.current_role}
+                            onChange={handleInputChange}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="company">Company / Organization</Label>
+                        <div className="relative">
+                          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="company"
+                            name="company"
+                            type="text"
+                            placeholder="e.g. Google, Student at MIT"
+                            className="pl-10"
+                            value={formData.company}
+                            onChange={handleInputChange}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
-                      <Label htmlFor="avatar_url">Profile Photo URL</Label>
-                      <div className="flex gap-4 items-center">
-                        {formData.avatar_url && (
-                          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
-                            <img src={formData.avatar_url} alt="Profile preview" className="w-full h-full object-cover" />
-                          </div>
-                        )}
+                      <Label htmlFor="location">Location *</Label>
+                      <div className="relative">
+                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
-                          id="avatar_url"
-                          name="avatar_url"
-                          type="url"
-                          placeholder="https://images.unsplash.com/..."
-                          value={formData.avatar_url}
+                          id="location"
+                          name="location"
+                          type="text"
+                          placeholder="e.g. Colombo, Sri Lanka / Remote"
+                          className="pl-10"
+                          value={formData.location}
                           onChange={handleInputChange}
+                          required
                         />
                       </div>
                     </div>
@@ -372,10 +422,8 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
 
                   {/* Mentee-specific fields */}
                   {userType === "mentee" && (
-                    <div className="space-y-4 pt-4">
-                      <div className="border-t pt-4">
-                        <h3 className="mb-4 text-sm font-medium">Mentee Profile</h3>
-                      </div>
+                    <div className="space-y-4 pt-4 border-t">
+                      <h3 className="mb-4 text-sm font-medium">Mentee Profile</h3>
 
                       <div className="space-y-2">
                         <Label htmlFor="interests">Areas of Interest *</Label>
@@ -391,19 +439,6 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
                         <p className="text-xs text-muted-foreground">
                           Separate multiple interests with commas
                         </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="current_role">Current Role/Status *</Label>
-                        <Input
-                          id="current_role"
-                          name="current_role"
-                          type="text"
-                          placeholder="e.g., Junior Developer, Student, Career Switcher"
-                          value={formData.current_role}
-                          onChange={handleInputChange}
-                          required
-                        />
                       </div>
 
                       <div className="space-y-2">

@@ -35,6 +35,8 @@ export function RequestMentorshipDialog({
   const [message, setMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
 
   // Fetch mentor profile on open
   useEffect(() => {
@@ -64,15 +66,39 @@ export function RequestMentorshipDialog({
 
     if (startTimeIndex === -1 || endTimeIndex === -1) return [];
 
-    return TIME_SLOTS.slice(startTimeIndex, endTimeIndex + 1);
-  }, [mentorProfile]);
+    const allDaySlots = TIME_SLOTS.slice(startTimeIndex, endTimeIndex + 1);
+
+    // Filter out already booked slots
+    return allDaySlots.filter(slot => !bookedSlots.includes(slot));
+  }, [mentorProfile, bookedSlots]);
 
   // Update slots when date changes
+  useEffect(() => {
+    const fetchBookings = async () => {
+      if (selectedDate && mentorId) {
+        setIsLoadingBookings(true);
+        // Standardize date to ISO string (YYYY-MM-DD) for consistency
+        const dateStr = selectedDate.toISOString().split('T')[0];
+        const booked = await supabaseService.getBookedSlots(mentorId, dateStr);
+        setBookedSlots(booked);
+        setIsLoadingBookings(false);
+      } else {
+        setBookedSlots([]);
+      }
+    };
+
+    fetchBookings();
+
+    if (selectedDate) {
+      setSelectedTime(""); // Reset time when date changes
+    }
+  }, [selectedDate, mentorId]);
+
+  // Update available slots when bookedSlots or mentorProfile changes
   useEffect(() => {
     if (selectedDate) {
       const slots = generateAvailableSlots(selectedDate);
       setAvailableSlots(slots);
-      setSelectedTime(""); // Reset time when date changes
     } else {
       setAvailableSlots([]);
     }
@@ -118,7 +144,7 @@ export function RequestMentorshipDialog({
         user_avatar: user.avatar || "",
         status: "pending",
         message: message,
-        preferred_date: selectedDate.toLocaleDateString(),
+        preferred_date: selectedDate.toISOString().split('T')[0], // Use ISO string for consistency
         preferred_time: selectedTime,
         mentorship_type: sessionType,
         session_id: null // Explicitly null for personal mentorship
@@ -224,9 +250,9 @@ export function RequestMentorshipDialog({
             >
               <SelectTrigger id="time" className="border-border hover:border-primary/50 focus:border-primary transition-colors">
                 <SelectValue placeholder={
-                  isLoadingProfile ? "Loading availability..." :
+                  isLoadingProfile || isLoadingBookings ? "Loading availability..." :
                     !selectedDate ? "Pick a date first" :
-                      availableSlots.length === 0 ? "Mentor is unavailable" : "Select time"
+                      availableSlots.length === 0 ? "No available slots" : "Select time"
                 } />
               </SelectTrigger>
               <SelectContent className="border-primary/20">

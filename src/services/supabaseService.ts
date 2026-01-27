@@ -194,58 +194,41 @@ export const supabaseService = {
     // Remove undefined values
     Object.keys(dbProfile).forEach(key => (dbProfile as any)[key] === undefined && delete (dbProfile as any)[key]);
 
-    try {
-      const { data, error } = await supabase
-        .from(tables.profiles)
-        .upsert(dbProfile)
-        .select();
+    const { error } = await supabase
+      .from(tables.profiles)
+      .upsert(dbProfile); // Use upsert to handle cases where profile record already exists
 
-      if (error) {
-        console.error('Error creating profile:', error);
-        toast.error(`Failed to create profile: ${error.message}`);
-        return null;
-      }
-
-      if (!data || data.length === 0) {
-        toast.error('Profile created but no data returned');
-        return null;
-      }
-
-      // Map back to camelCase
-      const d = data[0];
-      return {
-        id: d.id,
-        email: d.email,
-        name: d.full_name,
-        avatar: d.avatar_url,
-        bio: d.bio,
-        expertise: d.expertise,
-        role: d.role,
-        yearsExperience: d.years_experience,
-        currentRole: d.current_role,
-        company: d.company,
-        linkedin: d.linkedin_url,
-        github: d.github_url,
-        website: d.website_url,
-        location: d.location,
-        interests: d.interests,
-        goals: d.goals,
-        achievements: d.achievements,
-        profileCompleted: d.profile_completed,
-        availability: d.availability,
-        experiences: d.experiences || [],
-        createdAt: d.created_at,
-        updatedAt: d.updated_at,
-      } as UserProfile;
-    } catch (err: any) {
-      console.error('Exception in createProfile:', err);
-      if (err.name === 'AbortError') {
-        toast.error('The request was interrupted. Please try clicking "Complete Setup" again.');
-      } else {
-        toast.error(`Unexpected error: ${err.message || 'Unknown error'}`);
-      }
-      return null;
+    if (error) {
+      console.error('Error creating profile:', error);
+      throw error;
     }
+
+    // Since we aren't selecting, we assume success and return the input data structure
+    // This is a temporary fix to bypass potential RLS select issues causing AbortError
+    return {
+      id: profile.id!,
+      email: profile.email!,
+      name: profile.name!,
+      avatar: profile.avatar,
+      bio: profile.bio,
+      expertise: profile.expertise,
+      role: profile.role!,
+      yearsExperience: profile.yearsExperience,
+      currentRole: profile.currentRole,
+      company: profile.company,
+      linkedin: profile.linkedin,
+      github: profile.github,
+      website: profile.website,
+      location: profile.location,
+      interests: profile.interests,
+      goals: profile.goals,
+      achievements: profile.achievements,
+      profileCompleted: true, // We successfully completed it
+      availability: profile.availability,
+      experiences: profile.experiences || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as UserProfile;
   },
 
   async updateProfile(userId: string, updates: Partial<UserProfile>): Promise<UserProfile | null> {
@@ -614,6 +597,23 @@ export const supabaseService = {
       mentorMessage: data[0].mentor_message,
       meetingUrl: data[0].meeting_url,
     } : null;
+  },
+
+  async getBookedSlots(mentorId: string, date: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from(tables.session_requests)
+      .select('preferred_time')
+      .eq('mentor_id', mentorId)
+      .eq('preferred_date', date)
+      .in('status', ['pending', 'accepted'])
+      .is('session_id', null);
+
+    if (error) {
+      console.error('Error fetching booked slots:', error);
+      return [];
+    }
+
+    return data.map(item => item.preferred_time);
   },
 
   // Add more methods for other operations as needed
