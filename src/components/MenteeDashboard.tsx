@@ -7,7 +7,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Search, Calendar, User, BookOpen, GraduationCap, MapPin, Monitor, Clock, Link as LinkIcon, Sparkles, TrendingUp, Target } from "lucide-react";
+import { Search, Calendar, User, BookOpen, GraduationCap, MapPin, Monitor, Clock, Link as LinkIcon, Sparkles, TrendingUp, Target, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../contexts/AuthContext";
 import { supabaseService } from "../services/supabaseService";
@@ -103,7 +103,7 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                         <TabsTrigger value="overview" className="rounded-xl data-[state=active]:shadow-sm">Overview</TabsTrigger>
                         <TabsTrigger value="sessions" className="rounded-xl data-[state=active]:shadow-sm">My Sessions</TabsTrigger>
                         <TabsTrigger value="discover" className="rounded-xl data-[state=active]:shadow-sm">Discover</TabsTrigger>
-                        <TabsTrigger value="profile" className="rounded-xl data-[state=active]:shadow-sm">Profile</TabsTrigger>
+                        <TabsTrigger value="profile" className="rounded-xl data-[state=active]:shadow-sm">Settings</TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -436,10 +436,10 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                             <div className="p-8 border-b border-primary/5 bg-muted/30 flex justify-between items-center">
                                 <div>
                                     <h3 className="text-xl font-bold flex items-center gap-2">
-                                        <User className="w-5 h-5 text-primary" />
-                                        Profile Settings
+                                        <Settings className="w-5 h-5 text-primary" />
+                                        Account Settings
                                     </h3>
-                                    <p className="text-sm text-muted-foreground">Update your personal information and technical showcase.</p>
+                                    <p className="text-sm text-muted-foreground">Manage your personal information and account preferences.</p>
                                 </div>
                                 <Button
                                     variant={isEditing ? "ghost" : "outline"}
@@ -451,6 +451,10 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                             </div>
 
                             <form onSubmit={handleUpdateProfile} className="p-8 space-y-8">
+                                <div className="pb-4 border-b">
+                                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Profile Information</h4>
+                                    <p className="text-xs text-muted-foreground">Update your details that are shown across the platform.</p>
+                                </div>
                                 <div className="flex flex-col md:flex-row items-center gap-8">
                                     <div className="group relative">
                                         <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />

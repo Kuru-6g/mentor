@@ -423,7 +423,7 @@ export function AuthForm() {
                           const { error } = await supabase.auth.signInWithOAuth({
                             provider: 'google',
                             options: {
-                              redirectTo: `${window.location.origin}/profile-setup`,
+                              redirectTo: `https://nimble-begonia-95dd5e.netlify.app/profile-setup`,
                             },
                           });
                           if (error) throw error;

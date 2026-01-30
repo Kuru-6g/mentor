@@ -351,7 +351,7 @@ export function MentorDashboard({
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="flex w-full overflow-x-auto justify-start h-auto p-1 bg-muted/50 scrollbar-hide">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="profile">Settings</TabsTrigger>
           <TabsTrigger value="achievements">Achievements</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="availability" className="gap-2">
@@ -366,8 +366,12 @@ export function MentorDashboard({
 
         <TabsContent value="profile" className="mt-6">
           <Card className="p-6 max-w-2xl">
-            <h3 className="mb-6">Profile Information</h3>
+            <h3 className="mb-6">Account Settings</h3>
             <div className="space-y-6">
+              <div className="pb-4 border-b">
+                <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-1">Profile Information</h4>
+                <p className="text-xs text-muted-foreground">This information will be visible to mentees on your public profile.</p>
+              </div>
               <div className="flex items-center gap-6">
                 <Avatar className="w-24 h-24">
                   <AvatarImage src={profileData.avatar} />
