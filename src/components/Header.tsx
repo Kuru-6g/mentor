@@ -1,11 +1,14 @@
-import { Button } from "./ui/button";
-import { Users, Lock, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Button } from "./ui/button";
+import { Settings, LogOut, ChevronDown, User, Sparkles, Users, Lock, Menu, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../contexts/AuthContext";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const location = useLocation();
   const { user, signOut, session, loading } = useAuth();
   const userRole = user?.role;
@@ -79,16 +82,66 @@ export function Header() {
                 </Link>
               </>
             ) : (
-              <div className="flex items-center gap-3">
-                {user && (
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-secondary rounded-lg">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                    <span className="text-sm font-medium capitalize">{userRole}</span>
-                  </div>
-                )}
-                <Button variant="outline" size="sm" onClick={() => signOut()} className="shadow-sm hover:shadow">
-                  Logout
-                </Button>
+              <div className="relative">
+                <button
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  onBlur={() => setTimeout(() => setProfileOpen(false), 200)}
+                  className="flex items-center gap-2 p-1 rounded-full hover:bg-muted transition-all active:scale-95 group"
+                >
+                  <Avatar className="w-9 h-9 border-2 border-transparent group-hover:border-primary/20 transition-all">
+                    <AvatarImage src={user?.avatar} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {user?.name?.split(' ').map(n => n[0]).join('') || <User className="w-4 h-4" />}
+                    </AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${profileOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {profileOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-3 w-64 bg-card border rounded-2xl shadow-xl overflow-hidden z-[100]"
+                    >
+                      <div className="p-4 bg-muted/30 border-b">
+                        <p className="font-semibold text-foreground truncate">{user?.name}</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                            {userRole}
+                          </span>
+                          {userRole === 'mentor' && (
+                            <Sparkles className="w-3 h-3 text-yellow-500 animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="p-2">
+                        <Link
+                          to="/profile-setup"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                            <Settings className="w-4 h-4" />
+                          </div>
+                          Account Settings
+                        </Link>
+
+                        <button
+                          onClick={() => signOut()}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors group"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <LogOut className="w-4 h-4" />
+                          </div>
+                          Sign Out
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 

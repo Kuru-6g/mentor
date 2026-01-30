@@ -27,14 +27,6 @@ interface Achievement {
   type: string;
 }
 
-interface VisitingExperience {
-  id: number;
-  menteeName: string;
-  menteeAvatar: string;
-  date: string;
-  description: string;
-  topics: string[];
-}
 
 interface MentorDashboardProps {
   onAddSession: (session: Omit<Session, "id" | "attendees" | "availableSlots">) => void;
@@ -128,14 +120,6 @@ export function MentorDashboard({
     s.createdBy === user?.id || s.speakers.some(speaker => speaker.name === user?.name)
   );
 
-  const [visitingExperiences, setVisitingExperiences] = useState<VisitingExperience[]>(user?.experiences || []);
-
-  // Update experiences when user changes
-  useEffect(() => {
-    if (user?.experiences) {
-      setVisitingExperiences(user.experiences);
-    }
-  }, [user]);
 
   const [newAchievement, setNewAchievement] = useState({
     title: "",
@@ -169,15 +153,7 @@ export function MentorDashboard({
     avatar: ""
   });
 
-  const [newExperience, setNewExperience] = useState({
-    menteeName: "",
-    date: "",
-    description: "",
-    topics: ""
-  });
-
   const [isAddAchievementOpen, setIsAddAchievementOpen] = useState(false);
-  const [isAddExperienceOpen, setIsAddExperienceOpen] = useState(false);
   const [selectedSessionForParticipants, setSelectedSessionForParticipants] = useState<Session | null>(null);
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
 
@@ -341,64 +317,6 @@ export function MentorDashboard({
     toast.success("Jitsi Meet link generated!");
   };
 
-  const handleAddExperience = async () => {
-    if (newExperience.menteeName && newExperience.description) {
-      if (!user) return;
-
-      setIsLoading(true);
-      const updatedExperiences = [
-        ...visitingExperiences,
-        {
-          id: Date.now(),
-          menteeName: newExperience.menteeName,
-          date: newExperience.date,
-          description: newExperience.description,
-          topics: newExperience.topics.split(",").map(t => t.trim()).filter(Boolean),
-          menteeAvatar: ""
-        }
-      ];
-
-      try {
-        const result = await supabaseService.updateProfile(user.id, {
-          experiences: updatedExperiences
-        });
-        if (result) {
-          setVisitingExperiences(updatedExperiences);
-          toast.success("Experience added successfully");
-          await refreshUser();
-          setNewExperience({ menteeName: "", date: "", description: "", topics: "" });
-          setIsAddExperienceOpen(false);
-        }
-      } catch (error) {
-        console.error("Add experience error:", error);
-        toast.error("Failed to add experience");
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleDeleteExperience = async (id: number) => {
-    if (!user) return;
-    const updatedExperiences = visitingExperiences.filter(e => e.id !== id);
-
-    setIsLoading(true);
-    try {
-      const result = await supabaseService.updateProfile(user.id, {
-        experiences: updatedExperiences
-      });
-      if (result) {
-        setVisitingExperiences(updatedExperiences);
-        toast.success("Experience deleted");
-        await refreshUser();
-      }
-    } catch (error) {
-      console.error("Delete experience error:", error);
-      toast.error("Failed to delete experience");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleDeleteAchievement = async (id: number) => {
     if (!user) return;
@@ -444,7 +362,6 @@ export function MentorDashboard({
             <UserPlus className="w-4 h-4" />
             Mentorship Requests
           </TabsTrigger>
-          <TabsTrigger value="experiences">Experiences</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
@@ -1107,120 +1024,6 @@ export function MentorDashboard({
           <AvailabilitySettings />
         </TabsContent>
 
-        <TabsContent value="experiences" className="mt-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3>Visiting Experiences with Mentees</h3>
-            <Dialog open={isAddExperienceOpen} onOpenChange={setIsAddExperienceOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Experience
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Visiting Experience</DialogTitle>
-                  <DialogDescription>
-                    Document your mentorship journey by adding an experience with a mentee.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Mentee Name</Label>
-                    <Input
-                      value={newExperience.menteeName}
-                      onChange={(e) => setNewExperience({ ...newExperience, menteeName: e.target.value })}
-                      placeholder="Mentee's full name"
-                    />
-                  </div>
-                  <div>
-                    <Label>Date/Period</Label>
-                    <Input
-                      value={newExperience.date}
-                      onChange={(e) => setNewExperience({ ...newExperience, date: e.target.value })}
-                      placeholder="e.g., September 2024"
-                    />
-                  </div>
-                  <div>
-                    <Label>Description</Label>
-                    <Textarea
-                      value={newExperience.description}
-                      onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
-                      placeholder="Describe the mentorship experience and outcomes"
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <Label>Topics Covered (comma-separated)</Label>
-                    <Input
-                      value={newExperience.topics}
-                      onChange={(e) => setNewExperience({ ...newExperience, topics: e.target.value })}
-                      placeholder="e.g., Career Change, Web Development"
-                    />
-                  </div>
-                  <Button onClick={handleAddExperience} className="w-full">
-                    Add Experience
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {visitingExperiences.length === 0 ? (
-            <Card className="p-12 text-center">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users2 className="w-10 h-10 text-primary" />
-              </div>
-              <h3 className="mb-2">No experiences recorded yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Document your mentorship journey by adding experiences with your mentees!
-              </p>
-              <Button onClick={() => setIsAddExperienceOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Your First Experience
-              </Button>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {visitingExperiences.map((experience) => (
-                <Card key={experience.id} className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={experience.menteeAvatar} />
-                        <AvatarFallback>
-                          {experience.menteeName.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h4>{experience.menteeName}</h4>
-                        <p className="text-sm text-muted-foreground">{experience.date}</p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteExperience(experience.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                  <p className="text-muted-foreground mb-4">{experience.description}</p>
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-2">Topics Covered</p>
-                    <div className="flex flex-wrap gap-2">
-                      {experience.topics.map((topic, index) => (
-                        <Badge key={index} variant="secondary">
-                          {topic}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
 
         <TabsContent value="mentorship-requests" className="mt-6">
           <SessionRequestsManager
