@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true);
   const userRef = useRef<UserProfile | null>(null);
   const sessionRef = useRef<any>(null);
+  const logoutPendingRef = useRef(false);
 
   // Initialize auth state
   useEffect(() => {
@@ -78,6 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If we have a new user session, set loading immediately before updating state
         // ONLY if we don't already have one to avoid unmounting components during transitions
         if (currentSession?.user && !userRef.current) {
+          if (logoutPendingRef.current) {
+            console.log('Ignoring SIGNED_IN event because a logout is pending');
+            return;
+          }
           setLoading(true);
         }
 
@@ -179,11 +184,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setLoading(true);
-      // We attempt to sign out from Supabase, but we clear local state regardless
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.warn('Supabase signOut error:', error);
-        // We don't throw here so the finally block can clear local state
+      logoutPendingRef.current = true;
+
+      // Add a safety timeout for the remote sign-out
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Sign out timeout')), 3000)
+      );
+
+      try {
+        await Promise.race([signOutPromise, timeoutPromise]);
+      } catch (timeoutOrError: any) {
+        console.warn('Remote signOut failed or timed out, clearing local state anyway:', timeoutOrError);
+        // Fallback to local-only signout if possible
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => { });
       }
 
       toast.success('Signed out successfully');
@@ -197,8 +211,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userRef.current = null;
         sessionRef.current = null;
         setLoading(false);
+        // Reset the pending flag after state is fully cleared
+        setTimeout(() => {
+          logoutPendingRef.current = false;
+        }, 1000);
       }
-      // Redirect to home or login is handled by Route logic
+      // Clear any potential leftover auth data from localStorage manually as a last resort
+      try {
+        // Use a safe way to access Vite env to satisfy TypeScript in all contexts
+        const env = (import.meta as any).env;
+        const projectID = env?.VITE_SUPABASE_PROJECT_ID;
+        if (projectID) {
+          localStorage.removeItem(`sb-${projectID}-auth-token`);
+        }
+      } catch (e) {
+        console.warn('Failed to clear localStorage manually:', e);
+      }
     }
   };
 
