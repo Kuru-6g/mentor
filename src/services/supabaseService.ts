@@ -18,7 +18,10 @@ export interface UserProfile {
   location?: string;
   linkedin?: string; // was linkedin_url
   github?: string; // was github_url
+  twitter?: string; // was twitter_url
   website?: string; // was website_url
+  monthlyPricing?: number; // was monthly_pricing
+  sessionPricing?: number; // was session_pricing
   interests?: string[];
   goals?: string;
   achievements?: any[];
@@ -110,7 +113,10 @@ export const supabaseService = {
       location: data.location,
       linkedin: data.linkedin_url,
       github: data.github_url,
+      twitter: data.twitter_url,
       website: data.website_url,
+      monthlyPricing: data.monthly_pricing,
+      sessionPricing: data.session_pricing,
       interests: data.interests,
       goals: data.goals,
       achievements: data.achievements,
@@ -152,7 +158,10 @@ export const supabaseService = {
       location: m.location,
       linkedin: m.linkedin_url,
       github: m.github_url,
+      twitter: m.twitter_url,
       website: m.website_url,
+      monthlyPricing: m.monthly_pricing,
+      sessionPricing: m.session_pricing,
       interests: m.interests,
       goals: m.goals,
       achievements: m.achievements,
@@ -180,7 +189,10 @@ export const supabaseService = {
       location: profile.location,
       linkedin_url: profile.linkedin,
       github_url: profile.github,
+      twitter_url: profile.twitter,
       website_url: profile.website,
+      monthly_pricing: profile.monthlyPricing,
+      session_pricing: profile.sessionPricing,
       interests: profile.interests,
       goals: profile.goals,
       achievements: profile.achievements,
@@ -245,7 +257,10 @@ export const supabaseService = {
       location: updates.location,
       linkedin_url: updates.linkedin,
       github_url: updates.github,
+      twitter_url: updates.twitter,
       website_url: updates.website,
+      monthly_pricing: updates.monthlyPricing,
+      session_pricing: updates.sessionPricing,
       interests: updates.interests,
       goals: updates.goals,
       achievements: updates.achievements,
@@ -285,7 +300,10 @@ export const supabaseService = {
       company: data.company,
       linkedin: data.linkedin_url,
       github: data.github_url,
+      twitter: data.twitter_url,
       website: data.website_url,
+      monthlyPricing: data.monthly_pricing,
+      sessionPricing: data.session_pricing,
       location: data.location,
       interests: data.interests,
       goals: data.goals,
@@ -616,13 +634,59 @@ export const supabaseService = {
     return data.map(item => item.preferred_time);
   },
 
-  // Add more methods for other operations as needed
-  // - Session Requests
-  // - Reviews
-  // - Notifications
-  // - Mentorship Requests
-  // - Blog Posts
-  // - Achievements
+  // Payment Operations
+  async createStripeConnectAccount(): Promise<{ url: string } | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/server/make-server-2b2cab0b/payments/create-connect-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create Connect account');
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error creating Stripe account:', error);
+      toast.error(error.message);
+      return null;
+    }
+  },
+
+  async createPaymentIntent(params: { mentorId: string; sessionId?: string; amount: number; currency?: string }) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return null;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/server/make-server-2b2cab0b/payments/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create Payment Intent');
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error creating payment intent:', error);
+      toast.error(error.message);
+      return null;
+    }
+  },
 };
 
 export default supabaseService;

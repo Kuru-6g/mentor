@@ -27,6 +27,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PublicRoute } from "./components/PublicRoute";
 import { MenteeDashboard } from "./components/MenteeDashboard";
 import { BrowserRouter, useParams } from "react-router-dom";
+import { AccountSettings } from "./components/AccountSettings";
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Mock initial sessions
@@ -273,6 +274,15 @@ function AppContent() {
                   userEmail={session?.user?.email || user?.email || ''}
                   onComplete={() => { }} // Now handled internally in ProfileSetup
                 />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <AccountSettings />
               </ProtectedRoute>
             }
           />

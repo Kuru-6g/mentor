@@ -120,7 +120,7 @@ export function Header() {
 
                       <div className="p-2">
                         <Link
-                          to="/profile-setup"
+                          to="/account"
                           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium hover:bg-muted transition-colors group"
                         >
                           <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">

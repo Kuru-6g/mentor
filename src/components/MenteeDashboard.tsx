@@ -24,59 +24,6 @@ interface MenteeDashboardProps {
 export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardProps) {
     const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
-    const [isEditing, setIsEditing] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [profileData, setProfileData] = useState({
-        name: user?.name || "",
-        bio: user?.bio || "",
-        currentRole: user?.currentRole || "",
-        interests: user?.interests?.join(", ") || "",
-        goals: user?.goals || "",
-        avatar: user?.avatar || ""
-    });
-
-    useEffect(() => {
-        if (user) {
-            setProfileData({
-                name: user.name || "",
-                bio: user.bio || "",
-                currentRole: user.currentRole || "",
-                interests: user.interests?.join(", ") || "",
-                goals: user.goals || "",
-                avatar: user.avatar || ""
-            });
-        }
-    }, [user]);
-
-    const handleUpdateProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!user) return;
-
-        setIsLoading(true);
-        try {
-            const updates = {
-                name: profileData.name,
-                bio: profileData.bio,
-                currentRole: profileData.currentRole,
-                interests: profileData.interests.split(",").map(i => i.trim()).filter(Boolean),
-                goals: profileData.goals,
-                avatar: profileData.avatar,
-            };
-
-            const result = await supabaseService.updateProfile(user.id, updates);
-            if (result) {
-                toast.success("Profile updated successfully");
-                await refreshUser();
-                setIsEditing(false);
-            }
-        } catch (error) {
-            console.error("Update profile error:", error);
-            toast.error("Failed to update profile");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const myRequests = sessionRequests.filter(r => r.userId === user?.id);
     const joinedSessions = sessions.filter(s =>
         myRequests.some(r => r.sessionId === s.id && r.status === 'accepted')
@@ -99,11 +46,10 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
 
             <Tabs defaultValue="overview" className="w-full">
                 <div className="bg-muted/50 p-1 rounded-2xl w-fit mb-8 mx-auto lg:mx-0">
-                    <TabsList className="bg-transparent border-none p-0 h-10 w-full lg:w-[600px] grid grid-cols-2 md:grid-cols-4">
+                    <TabsList className="bg-transparent border-none p-0 h-10 w-full lg:w-[450px] grid grid-cols-1 md:grid-cols-3">
                         <TabsTrigger value="overview" className="rounded-xl data-[state=active]:shadow-sm">Overview</TabsTrigger>
                         <TabsTrigger value="sessions" className="rounded-xl data-[state=active]:shadow-sm">My Sessions</TabsTrigger>
                         <TabsTrigger value="discover" className="rounded-xl data-[state=active]:shadow-sm">Discover</TabsTrigger>
-                        <TabsTrigger value="profile" className="rounded-xl data-[state=active]:shadow-sm">Settings</TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -430,147 +376,6 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                     </div>
                 </TabsContent>
 
-                <TabsContent value="profile" className="mt-0 outline-none focus-visible:ring-0">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                        <Card className="p-0 overflow-hidden border-primary/5 shadow-sm max-w-4xl mx-auto lg:mx-0">
-                            <div className="p-8 border-b border-primary/5 bg-muted/30 flex justify-between items-center">
-                                <div>
-                                    <h3 className="text-xl font-bold flex items-center gap-2">
-                                        <Settings className="w-5 h-5 text-primary" />
-                                        Account Settings
-                                    </h3>
-                                    <p className="text-sm text-muted-foreground">Manage your personal information and account preferences.</p>
-                                </div>
-                                <Button
-                                    variant={isEditing ? "ghost" : "outline"}
-                                    className="rounded-full px-6"
-                                    onClick={() => setIsEditing(!isEditing)}
-                                >
-                                    {isEditing ? "Cancel" : "Edit Details"}
-                                </Button>
-                            </div>
-
-                            <form onSubmit={handleUpdateProfile} className="p-8 space-y-8">
-                                <div className="pb-4 border-b">
-                                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-1">Profile Information</h4>
-                                    <p className="text-xs text-muted-foreground">Update your details that are shown across the platform.</p>
-                                </div>
-                                <div className="flex flex-col md:flex-row items-center gap-8">
-                                    <div className="group relative">
-                                        <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <Avatar className="w-32 h-32 border-4 border-card shadow-2xl relative z-10 transition-transform group-hover:scale-105 duration-500">
-                                            <AvatarImage src={profileData.avatar} />
-                                            <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
-                                                {profileData.name?.split(' ').map(n => n[0]).join('')}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                    {isEditing && (
-                                        <div className="flex-1 space-y-2 w-full">
-                                            <Label htmlFor="avatar-url" className="text-xs font-bold uppercase tracking-widest text-primary">Profile Photo URL</Label>
-                                            <Input
-                                                id="avatar-url"
-                                                className="rounded-xl border-primary/10 focus:border-primary/30 transition-all bg-muted/30"
-                                                value={profileData.avatar}
-                                                onChange={(e) => setProfileData({ ...profileData, avatar: e.target.value })}
-                                                placeholder="https://images.unsplash.com/..."
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-bold uppercase tracking-widest text-primary">Display Name</Label>
-                                        <Input
-                                            value={profileData.name}
-                                            onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                                            readOnly={!isEditing}
-                                            className={cn(
-                                                "rounded-xl transition-all",
-                                                !isEditing ? "bg-muted/50 border-transparent cursor-default" : "bg-muted/20 border-primary/10 focus:border-primary/30"
-                                            )}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-bold uppercase tracking-widest text-primary">Professional Role</Label>
-                                        <Input
-                                            value={profileData.currentRole}
-                                            onChange={(e) => setProfileData({ ...profileData, currentRole: e.target.value })}
-                                            readOnly={!isEditing}
-                                            placeholder="e.g., Aspiring Full Stack Developer"
-                                            className={cn(
-                                                "rounded-xl transition-all",
-                                                !isEditing ? "bg-muted/50 border-transparent cursor-default" : "bg-muted/20 border-primary/10 focus:border-primary/30"
-                                            )}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-widest text-primary">Professional Summary</Label>
-                                    <Textarea
-                                        value={profileData.bio}
-                                        onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                                        readOnly={!isEditing}
-                                        rows={4}
-                                        placeholder="Briefly describe your background and passion..."
-                                        className={cn(
-                                            "rounded-xl transition-all resize-none",
-                                            !isEditing ? "bg-muted/50 border-transparent cursor-default" : "bg-muted/20 border-primary/10 focus:border-primary/30"
-                                        )}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-widest text-primary">Technical Expertise (comma-separated)</Label>
-                                    <Input
-                                        value={profileData.interests}
-                                        onChange={(e) => setProfileData({ ...profileData, interests: e.target.value })}
-                                        readOnly={!isEditing}
-                                        placeholder="React, TypeScript, Cloud Architecture..."
-                                        className={cn(
-                                            "rounded-xl transition-all",
-                                            !isEditing ? "bg-muted/50 border-transparent cursor-default" : "bg-muted/20 border-primary/10 focus:border-primary/30"
-                                        )}
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-widest text-primary">Aspirational Goals</Label>
-                                    <Textarea
-                                        value={profileData.goals}
-                                        onChange={(e) => setProfileData({ ...profileData, goals: e.target.value })}
-                                        readOnly={!isEditing}
-                                        rows={3}
-                                        placeholder="What are you working towards?"
-                                        className={cn(
-                                            "rounded-xl transition-all resize-none",
-                                            !isEditing ? "bg-muted/50 border-transparent cursor-default" : "bg-muted/20 border-primary/10 focus:border-primary/30"
-                                        )}
-                                    />
-                                </div>
-
-                                {isEditing && (
-                                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-                                        <Button
-                                            type="submit"
-                                            className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 transition-all font-bold text-base shadow-lg shadow-primary/20"
-                                            disabled={isLoading}
-                                        >
-                                            {isLoading ? (
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                    Syncing Profile...
-                                                </div>
-                                            ) : "Commit Profile Changes"}
-                                        </Button>
-                                    </motion.div>
-                                )}
-                            </form>
-                        </Card>
-                    </motion.div>
-                </TabsContent>
             </Tabs>
         </div>
     );

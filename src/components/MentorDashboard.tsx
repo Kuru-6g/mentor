@@ -52,69 +52,6 @@ export function MentorDashboard({
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
-  // Profile data state
-  const [profileData, setProfileData] = useState({
-    name: user?.name || "",
-    avatar: user?.avatar || "",
-    title: user?.currentRole || "",
-    company: user?.company || "",
-    location: "San Francisco, CA", // Default or could be added to schema
-    bio: user?.bio || "",
-    expertise: user?.expertise?.join(", ") || ""
-  });
-
-  // Update profile data when user changes
-  useEffect(() => {
-    if (user) {
-      setProfileData({
-        name: user.name || "",
-        avatar: user.avatar || "",
-        title: user.currentRole || "",
-        company: user.company || "",
-        location: "San Francisco, CA",
-        bio: user.bio || "",
-        expertise: user.expertise?.join(", ") || ""
-      });
-    }
-  }, [user]);
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    setIsLoading(true);
-    try {
-      const updates = {
-        name: profileData.name,
-        avatar: profileData.avatar,
-        currentRole: profileData.title,
-        company: profileData.company,
-        bio: profileData.bio,
-        expertise: profileData.expertise.split(",").map(i => i.trim()).filter(Boolean),
-      };
-
-      const result = await supabaseService.updateProfile(user.id, updates);
-      if (result) {
-        toast.success("Profile updated successfully");
-        await refreshUser();
-      }
-    } catch (error) {
-      console.error("Update profile error:", error);
-      toast.error("Failed to update profile");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const [achievements, setAchievements] = useState<Achievement[]>(user?.achievements || []);
-
-  // Update achievements when user changes
-  useEffect(() => {
-    if (user?.achievements) {
-      setAchievements(user.achievements);
-    }
-  }, [user]);
-
   // Filter sessions to show only those created by this mentor
   const mentorSessions = sessions.filter(s =>
     s.createdBy === user?.id || s.speakers.some(speaker => speaker.name === user?.name)
@@ -153,45 +90,8 @@ export function MentorDashboard({
     avatar: ""
   });
 
-  const [isAddAchievementOpen, setIsAddAchievementOpen] = useState(false);
   const [selectedSessionForParticipants, setSelectedSessionForParticipants] = useState<Session | null>(null);
   const [isParticipantsModalOpen, setIsParticipantsModalOpen] = useState(false);
-
-  const handleAddAchievement = async () => {
-    if (!newAchievement.title) {
-      toast.error("Achievement title is required");
-      return;
-    }
-
-    if (!user) return;
-
-    setIsLoading(true);
-    const updatedAchievements = [
-      ...achievements,
-      {
-        ...newAchievement,
-        id: Date.now() // Use timestamp as ID for local/temp
-      }
-    ];
-
-    try {
-      const result = await supabaseService.updateProfile(user.id, {
-        achievements: updatedAchievements
-      });
-      if (result) {
-        setAchievements(updatedAchievements);
-        toast.success("Achievement added successfully");
-        await refreshUser();
-        setNewAchievement({ title: "", description: "", date: "", type: "Certification" });
-        setIsAddAchievementOpen(false);
-      }
-    } catch (error) {
-      console.error("Add achievement error:", error);
-      toast.error("Failed to add achievement");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleAddSessionClick = () => {
     if (newSession.title && newSession.description && sessionSpeakers.length > 0) {
@@ -318,24 +218,6 @@ export function MentorDashboard({
   };
 
 
-  const handleDeleteAchievement = async (id: number) => {
-    if (!user) return;
-    const updatedAchievements = achievements.filter(a => a.id !== id);
-
-    try {
-      const result = await supabaseService.updateProfile(user.id, {
-        achievements: updatedAchievements
-      });
-      if (result) {
-        setAchievements(updatedAchievements);
-        toast.success("Achievement deleted");
-        await refreshUser();
-      }
-    } catch (error) {
-      toast.error("Failed to delete achievement");
-    }
-  };
-
   const handleDeleteSessionClick = (id: number | string) => {
     onDeleteSession(id);
   };
@@ -349,10 +231,8 @@ export function MentorDashboard({
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs defaultValue="sessions" className="w-full">
         <TabsList className="flex w-full overflow-x-auto justify-start h-auto p-1 bg-muted/50 scrollbar-hide">
-          <TabsTrigger value="profile">Settings</TabsTrigger>
-          <TabsTrigger value="achievements">Achievements</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
           <TabsTrigger value="availability" className="gap-2">
             <Calendar className="w-4 h-4" />
@@ -364,162 +244,6 @@ export function MentorDashboard({
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="mt-6">
-          <Card className="p-6 max-w-2xl">
-            <h3 className="mb-6">Account Settings</h3>
-            <div className="space-y-6">
-              <div className="pb-4 border-b">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-primary mb-1">Profile Information</h4>
-                <p className="text-xs text-muted-foreground">This information will be visible to mentees on your public profile.</p>
-              </div>
-              <div className="flex items-center gap-6">
-                <Avatar className="w-24 h-24">
-                  <AvatarImage src={profileData.avatar} />
-                  <AvatarFallback>
-                    {profileData.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <Button variant="outline" size="sm" onClick={() => navigate("/profile-setup")}>Update Avatar</Button>
-                  <p className="text-xs text-muted-foreground mt-2">JPG, PNG or GIF. Max 2MB</p>
-                </div>
-              </div>
-              <form onSubmit={handleUpdateProfile} className="space-y-6">
-                <div>
-                  <Label>Full Name</Label>
-                  <Input
-                    value={profileData.name}
-                    onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={profileData.title}
-                    onChange={(e) => setProfileData({ ...profileData, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Company</Label>
-                  <Input
-                    value={profileData.company}
-                    onChange={(e) => setProfileData({ ...profileData, company: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Location</Label>
-                  <Input
-                    value={profileData.location}
-                    onChange={(e) => setProfileData({ ...profileData, location: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label>Bio</Label>
-                  <Textarea
-                    value={profileData.bio}
-                    onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <Label>Expertise (comma-separated)</Label>
-                  <Input
-                    value={profileData.expertise}
-                    onChange={(e) => setProfileData({ ...profileData, expertise: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
-              </form>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="achievements" className="mt-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3>Your Achievements</h3>
-            <Dialog open={isAddAchievementOpen} onOpenChange={setIsAddAchievementOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Achievement
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Achievement</DialogTitle>
-                  <DialogDescription>
-                    Add a new achievement, certification, or milestone to showcase on your profile.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label>Title</Label>
-                    <Input
-                      value={newAchievement.title}
-                      onChange={(e) => setNewAchievement({ ...newAchievement, title: e.target.value })}
-                      placeholder="Achievement title"
-                    />
-                  </div>
-                  <div>
-                    <Label>Description</Label>
-                    <Textarea
-                      value={newAchievement.description}
-                      onChange={(e) => setNewAchievement({ ...newAchievement, description: e.target.value })}
-                      placeholder="Describe your achievement"
-                      rows={4}
-                    />
-                  </div>
-                  <div>
-                    <Label>Date</Label>
-                    <Input
-                      value={newAchievement.date}
-                      onChange={(e) => setNewAchievement({ ...newAchievement, date: e.target.value })}
-                      placeholder="e.g., March 2024"
-                    />
-                  </div>
-                  <div>
-                    <Label>Type</Label>
-                    <Input
-                      value={newAchievement.type}
-                      onChange={(e) => setNewAchievement({ ...newAchievement, type: e.target.value })}
-                      placeholder="e.g., Certification, Project, Speaking"
-                    />
-                  </div>
-                  <Button onClick={handleAddAchievement} className="w-full">
-                    Add Achievement
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {achievements.map((achievement) => (
-              <Card key={achievement.id} className="p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="mb-1">{achievement.title}</h4>
-                    <Badge variant="outline">{achievement.type}</Badge>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteAchievement(achievement.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-                <p className="text-muted-foreground mb-3 text-sm">{achievement.description}</p>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  {achievement.date}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
 
         <TabsContent value="sessions" className="mt-6">
           <div className="flex justify-between items-center mb-6">
