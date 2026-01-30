@@ -758,7 +758,7 @@ export function AccountSettings() {
                                                 <Button
                                                     onClick={handleSetupPayouts}
                                                     disabled={isPayoutLoading}
-                                                    className="h-12 px-8 rounded-xl bg-slate-900 hover:bg-black text-white font-black uppercase text-[12px] tracking-widest transition-all flex items-center gap-3"
+                                                    className="h-12 px-8 rounded-xl bg-slate-900 hover:bg-black text-white font-semibold uppercase text-[12px] tracking-widest transition-all flex items-center gap-3"
                                                 >
                                                     {isPayoutLoading ? "Opening..." : "Open Stripe Dashboard"}
                                                     <ExternalLink className="w-4 h-4" />
@@ -802,7 +802,7 @@ export function AccountSettings() {
                                     </div>
                                     <Button
                                         onClick={() => handleAddAchievement({ title: "New Milestone", description: "Brief description", type: "Certification", date: new Date().getFullYear().toString() })}
-                                        className="h-12 px-6 rounded-xl bg-slate-900 hover:bg-black text-white font-black uppercase text-[12px] tracking-widest transition-all flex items-center gap-3"
+                                        className="h-12 px-6 rounded-xl bg-slate-900 hover:bg-black text-white font-semibold uppercase text-[12px] tracking-widest transition-all flex items-center gap-3"
                                     >
                                         <Plus className="w-4 h-4" />
                                         Record Milestone
@@ -898,9 +898,9 @@ export function AccountSettings() {
                                 </div>
                             </motion.div>
                         )}
-                    </AnimatePresence >
-                </div >
-            </main >
-        </div >
+                    </AnimatePresence>
+                </div>
+            </main>
+        </div>
     );
 }
