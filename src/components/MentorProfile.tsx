@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { MapPin, Award, Calendar, ExternalLink, ArrowLeft, Star, Video, Users, TrendingUp, MessageCircle, Briefcase } from "lucide-react";
 import { RequestMentorshipDialog } from "./RequestMentorshipDialog";
 import { HireMentorDialog } from "./HireMentorDialog";
-import { supabaseService, UserProfile } from "../services/supabaseService";
+import { supabaseService, UserProfile, Session } from "../services/supabaseService";
 import { Loader2 } from "lucide-react";
 
 interface Achievement {
@@ -18,85 +18,36 @@ interface Achievement {
   type: string;
 }
 
-interface Session {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  duration: string;
-  topics: string[];
-}
-
 interface MentorProfileProps {
   mentorId: string;
   onBack: () => void;
 }
 
-const mockAchievements: Achievement[] = [
-  {
-    id: 1,
-    title: "AWS Solutions Architect - Professional",
-    description: "Achieved professional level certification in AWS cloud architecture",
-    date: "March 2024",
-    type: "Certification"
-  },
-  {
-    id: 2,
-    title: "Led Migration to Microservices",
-    description: "Successfully led team to migrate monolithic application to microservices architecture, improving scalability by 300%",
-    date: "January 2024",
-    type: "Project"
-  },
-  {
-    id: 3,
-    title: "Conference Speaker - ReactConf 2023",
-    description: "Presented on advanced React patterns and performance optimization",
-    date: "October 2023",
-    type: "Speaking"
-  }
-];
-
-const mockSessions: Session[] = [
-  {
-    id: 1,
-    title: "Introduction to React Hooks",
-    description: "Learn the fundamentals of React Hooks and how to use them effectively in your applications",
-    date: "2025-10-15",
-    time: "6:00 PM EST",
-    duration: "90 minutes",
-    topics: ["React", "Hooks", "State Management"]
-  },
-  {
-    id: 2,
-    title: "System Design Fundamentals",
-    description: "Understand the core concepts of system design and how to approach design interviews",
-    date: "2025-10-22",
-    time: "7:00 PM EST",
-    duration: "120 minutes",
-    topics: ["System Design", "Architecture", "Scalability"]
-  }
-];
-
 export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
   const [mentor, setMentor] = useState<UserProfile | null>(null);
+  const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadMentor() {
+    async function loadData() {
       setIsLoading(true);
       try {
-        const data = await supabaseService.getProfile(mentorId);
-        setMentor(data);
+        const [profileData, sessionsData] = await Promise.all([
+          supabaseService.getProfile(mentorId),
+          supabaseService.getSessions({ created_by: mentorId })
+        ]);
+        setMentor(profileData);
+        // Cast to our local Session format (handling speakers mapping if necessary)
+        setSessions(sessionsData as any[]);
       } catch (error) {
-        console.error("Failed to load mentor:", error);
+        console.error("Failed to load mentor data:", error);
       } finally {
         setIsLoading(false);
       }
     }
-    loadMentor();
+    loadData();
   }, [mentorId]);
 
   if (isLoading) {
@@ -309,36 +260,42 @@ export function MentorProfile({ mentorId, onBack }: MentorProfileProps) {
             </TabsContent>
 
             <TabsContent value="sessions" className="space-y-4 mt-6">
-              {mockSessions.map((session) => (
-                <Card key={session.id} className="p-6">
-                  <h4 className="mb-2">{session.title}</h4>
-                  <p className="text-muted-foreground mb-4">{session.description}</p>
+              {sessions.length > 0 ? (
+                sessions.map((session) => (
+                  <Card key={session.id} className="p-6">
+                    <h4 className="mb-2">{session.title}</h4>
+                    <p className="text-muted-foreground mb-4">{session.description}</p>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
-                      <p className="text-sm">{session.date} at {session.time}</p>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Date & Time</p>
+                        <p className="text-sm">{session.date} at {session.time}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground mb-1">Duration</p>
+                        <p className="text-sm">{session.duration}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Duration</p>
-                      <p className="text-sm">{session.duration}</p>
-                    </div>
-                  </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">Topics</p>
-                    <div className="flex flex-wrap gap-2">
-                      {session.topics.map((topic, index) => (
-                        <Badge key={index} variant="secondary">
-                          {topic}
-                        </Badge>
-                      ))}
+                    <div className="mb-4">
+                      <p className="text-sm text-muted-foreground mb-2">Topics</p>
+                      <div className="flex flex-wrap gap-2">
+                        {session.topics.map((topic, index) => (
+                          <Badge key={index} variant="secondary">
+                            {topic}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <Button className="w-full">Join Session</Button>
-                </Card>
-              ))}
+                    <Button className="w-full">Join Session</Button>
+                  </Card>
+                ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  No tech sessions scheduled yet.
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="reviews" className="space-y-4 mt-6">

@@ -50,11 +50,6 @@ export function ProfileSetup({ userId, userEmail, initialData = {} }: Omit<Profi
   const [userType, setUserType] = useState<"mentor" | "mentee">("mentee");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Debug: Check for unmounts
-  useEffect(() => {
-    console.log("ProfileSetup MOUNTED");
-    return () => console.log("ProfileSetup UNMOUNTED");
-  }, []);
 
   // Redirect if profile is already completed
   useEffect(() => {

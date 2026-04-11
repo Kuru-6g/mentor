@@ -290,11 +290,9 @@ function AppContent() {
           <Route
             path="/mentors"
             element={
-              <ProtectedRoute>
-                <MentorDirectory
-                  onSelectMentor={(id) => navigate(`/mentors/${id}`)}
-                />
-              </ProtectedRoute>
+              <MentorDirectory
+                onSelectMentor={(id) => navigate(`/mentors/${id}`)}
+              />
             }
           />
 

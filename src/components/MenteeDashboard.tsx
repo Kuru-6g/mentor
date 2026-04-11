@@ -268,7 +268,7 @@ export function MenteeDashboard({ sessions, sessionRequests }: MenteeDashboardPr
                                                         <td className="px-6 py-8">
                                                             <div className="flex flex-col gap-3">
                                                                 <Badge className="w-fit font-bold rounded-full px-3" variant={
-                                                                    request.status === 'accepted' ? 'success' as any :
+                                                                    request.status === 'accepted' ? 'success' :
                                                                         request.status === 'rejected' ? 'destructive' : 'secondary'
                                                                 }>
                                                                     {request.status}

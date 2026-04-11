@@ -39,7 +39,6 @@ export function MentorDirectory({ onSelectMentor }: MentorDirectoryProps) {
     try {
       // 1. Fetch from Supabase
       const sourceMentors = await supabaseService.getAllMentors();
-      console.log("DEBUG: sourceMentors from service:", sourceMentors);
 
       // Transform to frontend format
       const transformedMentors = sourceMentors.map((m: any) => ({

@@ -8,6 +8,7 @@ import {
     Wallet,
     LogOut,
     ChevronLeft,
+    ChevronRight,
     Bell,
     Key,
     Globe,
@@ -16,7 +17,6 @@ import {
     Loader2,
     DollarSign,
     Briefcase,
-    Twitter,
     Linkedin,
     Github,
     Link as LinkIcon,
@@ -36,7 +36,10 @@ import {
     Trash2,
     Search,
     Eye,
-    EyeOff
+    EyeOff,
+    Sparkles,
+    Clock,
+    Edit
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -85,7 +88,6 @@ export function AccountSettings() {
         yearsExperience: user?.yearsExperience || 0,
         linkedIn: user?.linkedin || "",
         github: user?.github || "",
-        twitter: (user as any)?.twitter || "",
         website: (user as any)?.website || "",
         monthlyPricing: (user as any)?.monthlyPricing || 100,
         sessionPricing: (user as any)?.sessionPricing || 50,
@@ -107,7 +109,6 @@ export function AccountSettings() {
                 yearsExperience: user.yearsExperience || 0,
                 linkedIn: user.linkedin || "",
                 github: user.github || "",
-                twitter: (user as any).twitter || "",
                 website: (user as any).website || "",
                 monthlyPricing: (user as any).monthlyPricing || 100,
                 sessionPricing: (user as any).sessionPricing || 50,
@@ -118,8 +119,8 @@ export function AccountSettings() {
         }
     }, [user]);
 
-    const handleUpdateProfile = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleUpdateProfile = async (e?: React.FormEvent | React.MouseEvent) => {
+        if (e) e.preventDefault();
         if (!user) return;
 
         setIsLoading(true);
@@ -134,7 +135,6 @@ export function AccountSettings() {
                 yearsExperience: Number(formData.yearsExperience),
                 linkedin: formData.linkedIn,
                 github: formData.github,
-                twitter: formData.twitter,
                 website: formData.website,
                 monthlyPricing: Number(formData.monthlyPricing),
                 sessionPricing: Number(formData.sessionPricing),
@@ -143,9 +143,14 @@ export function AccountSettings() {
                 achievements: formData.achievements,
             };
 
-            await supabaseService.updateProfile(user.id, updates as any);
-            toast.success("Settings updated successfully");
-            await refreshUser();
+            console.log('Saving profile updates:', updates); // Debug log
+            const result = await supabaseService.updateProfile(user.id, updates as any);
+            console.log('Profile update result:', result); // Debug log
+
+            if (result) {
+                toast.success("Settings updated successfully");
+                await refreshUser();
+            }
         } catch (error) {
             console.error("Profile update error:", error);
             toast.error("Failed to update settings");
@@ -574,7 +579,161 @@ export function AccountSettings() {
                                 {/* Header Section */}
                                 <div>
                                     <h2 className="text-3xl font-semibold text-slate-900">Mentorship & Pricing</h2>
-                                    <p className="text-slate-500 mt-1 font-medium text-[15px]">Set your professional rates and define your mentorship focus.</p>
+                                    <p className="text-slate-500 mt-1 font-medium text-[15px]">Set your rates - you decide what you earn, we handle the rest.</p>
+                                </div>
+
+                                {/* Platform Fee Explainer */}
+                                <div className="p-5 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl border border-emerald-100">
+                                    <div className="flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center">
+                                            <Sparkles className="w-5 h-5 text-emerald-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-slate-900">How Pricing Works</p>
+                                            <p className="text-[13px] text-slate-500 mt-1 leading-relaxed">
+                                                You set what you want to earn. We add a <span className="font-semibold text-emerald-700">20% platform fee</span> on top for mentees.
+                                                <br />For monthly plans under $100, we charge a flat <span className="font-semibold text-emerald-700">$20 fee</span> instead.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Monthly Plan Section */}
+                                <div className="pt-8 border-t border-slate-100 space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-slate-900">Monthly Mentorship Plan</p>
+                                            <p className="text-[13px] text-slate-400 font-medium mt-0.5">Recurring subscription for ongoing mentorship</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {/* Your Payout */}
+                                        <div className="space-y-2">
+                                            <Label className="text-[13px] font-medium text-slate-500">Your Monthly Payout</Label>
+                                            <div className="relative">
+                                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-emerald-500" />
+                                                <Input
+                                                    type="number"
+                                                    value={formData.monthlyPricing}
+                                                    onChange={(e) => setFormData({ ...formData, monthlyPricing: parseInt(e.target.value) || 0 })}
+                                                    className="h-12 bg-emerald-50/50 border-emerald-200 rounded-xl pl-12 pr-4 font-semibold text-[18px] text-emerald-700 focus:ring-emerald-200"
+                                                />
+                                            </div>
+                                            <p className="text-[11px] text-emerald-600 font-medium">What you receive</p>
+                                        </div>
+
+                                        {/* Arrow */}
+                                        <div className="hidden md:flex items-center justify-center">
+                                            <div className="flex flex-col items-center">
+                                                <ChevronRight className="w-8 h-8 text-slate-300" />
+                                                <span className="text-[10px] text-slate-400 font-medium mt-1">+20% fee</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Mentee Pays */}
+                                        <div className="space-y-2">
+                                            <Label className="text-[13px] font-medium text-slate-500">Mentee Pays</Label>
+                                            <div className="h-12 bg-slate-100 border border-slate-200 rounded-xl px-4 flex items-center">
+                                                <span className="font-semibold text-[18px] text-slate-700">
+                                                    ${formData.monthlyPricing < 100
+                                                        ? formData.monthlyPricing + 20
+                                                        : Math.round(formData.monthlyPricing * 1.2)}
+                                                </span>
+                                                <span className="text-[13px] text-slate-400 ml-2">/month</span>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">Auto-calculated with platform fee</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Plan Includes */}
+                                    <div className="p-4 bg-slate-50 rounded-xl space-y-3">
+                                        <p className="text-[12px] font-semibold text-slate-500 uppercase tracking-wider">Plan Includes</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {[
+                                                { label: 'Calls per month', value: '2 sessions' },
+                                                { label: 'Unlimited chat', value: '24/7 access' },
+                                                { label: 'Resource sharing', value: 'Included' },
+                                                { label: 'Priority support', value: 'Included' },
+                                            ].map((item, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                                        <Check className="w-3 h-3 text-emerald-600" />
+                                                    </div>
+                                                    <span className="text-[13px] text-slate-600">{item.label}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* One-Off Sessions Section */}
+                                <div className="pt-8 border-t border-slate-100 space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-slate-900">One-Off Sessions</p>
+                                            <p className="text-[13px] text-slate-400 font-medium mt-0.5">Individual paid sessions for specific services</p>
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            className="h-10 px-4 rounded-xl text-[12px] font-semibold border-slate-200 hover:bg-slate-50"
+                                        >
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Add Session Type
+                                        </Button>
+                                    </div>
+
+                                    {/* Session Cards */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {[
+                                            { title: 'Introductory Call', duration: 30, payout: formData.sessionPricing || 39 },
+                                            { title: 'Consultation Session', duration: 60, payout: Math.round((formData.sessionPricing || 39) * 2) },
+                                            { title: 'Document/Portfolio Review', duration: 45, payout: Math.round((formData.sessionPricing || 39) * 1.5) },
+                                        ].map((session, i) => (
+                                            <div key={i} className="p-4 border border-slate-100 rounded-xl bg-white hover:border-emerald-100 transition-all group">
+                                                <div className="flex items-start justify-between">
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900">{session.title}</p>
+                                                        <p className="text-[12px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                                            <Clock className="w-3 h-3" /> {session.duration} minutes
+                                                        </p>
+                                                    </div>
+                                                    <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-slate-100 rounded-lg transition-all">
+                                                        <Edit className="w-4 h-4 text-slate-400" />
+                                                    </button>
+                                                </div>
+                                                <div className="mt-3 pt-3 border-t border-slate-50 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] text-slate-400">You earn:</span>
+                                                        <span className="font-semibold text-emerald-600">${session.payout}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[11px] text-slate-400">Mentee pays:</span>
+                                                        <span className="font-semibold text-slate-700">${Math.round(session.payout * 1.2)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Base Hourly Rate */}
+                                    <div className="p-4 bg-slate-50 rounded-xl">
+                                        <div className="flex items-center gap-4">
+                                            <div className="space-y-1 flex-1">
+                                                <Label className="text-[13px] font-medium text-slate-500">Base Hourly Rate (Your Payout)</Label>
+                                                <div className="relative max-w-[150px]">
+                                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                    <Input
+                                                        type="number"
+                                                        value={formData.sessionPricing}
+                                                        onChange={(e) => setFormData({ ...formData, sessionPricing: parseInt(e.target.value) || 0 })}
+                                                        className="h-10 bg-white border-slate-200 rounded-lg pl-9 pr-3 font-medium text-[15px]"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <p className="text-[12px] text-slate-400 max-w-[200px]">Session prices above are calculated based on this rate and duration.</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Expertise Section */}
@@ -596,40 +755,6 @@ export function AccountSettings() {
                                                     {tag.trim()}
                                                 </div>
                                             ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Pricing Tiers Section */}
-                                <div className="pt-8 border-t border-slate-100 space-y-6">
-                                    <div>
-                                        <p className="font-semibold text-slate-900">Pricing Tiers</p>
-                                        <p className="text-[13px] text-slate-400 font-medium mt-0.5">Define your monthly and per-session rates.</p>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-[13px] font-medium text-slate-500">Monthly Subscription</Label>
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-                                                <Input
-                                                    type="number"
-                                                    value={formData.monthlyPricing}
-                                                    onChange={(e) => setFormData({ ...formData, monthlyPricing: parseInt(e.target.value) || 0 })}
-                                                    className="h-12 bg-white border-slate-200 rounded-xl pl-12 pr-4 font-medium text-[15px]"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[13px] font-medium text-slate-500">Per-Session Rate (1hr)</Label>
-                                            <div className="relative">
-                                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400" />
-                                                <Input
-                                                    type="number"
-                                                    value={formData.sessionPricing}
-                                                    onChange={(e) => setFormData({ ...formData, sessionPricing: parseInt(e.target.value) || 0 })}
-                                                    className="h-12 bg-white border-slate-200 rounded-xl pl-12 pr-4 font-medium text-[15px]"
-                                                />
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -682,7 +807,6 @@ export function AccountSettings() {
                                     {[
                                         { name: "linkedIn", icon: <Linkedin className="w-5 h-5" />, label: "LinkedIn Profile", placeholder: "linkedin.com/in/username" },
                                         { name: "github", icon: <Github className="w-5 h-5" />, label: "GitHub Hub", placeholder: "github.com/username" },
-                                        { name: "twitter", icon: <Twitter className="w-5 h-5" />, label: "Twitter / X Profile", placeholder: "twitter.com/username" },
                                         { name: "website", icon: <Globe className="w-5 h-5" />, label: "Personal Website", placeholder: "yourwebsite.com" }
                                     ].map((social) => (
                                         <div key={social.name} className="space-y-3">

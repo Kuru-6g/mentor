@@ -30,7 +30,8 @@ export function RequestMentorshipDialog({
   const [mentorProfile, setMentorProfile] = useState<UserProfile | null>(null);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedStartTime, setSelectedStartTime] = useState<string>("");
+  const [selectedEndTime, setSelectedEndTime] = useState<string>("");
   const [sessionType, setSessionType] = useState<string>("");
   const [message, setMessage] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -90,7 +91,8 @@ export function RequestMentorshipDialog({
     fetchBookings();
 
     if (selectedDate) {
-      setSelectedTime(""); // Reset time when date changes
+      setSelectedStartTime(""); // Reset times when date changes
+      setSelectedEndTime("");
     }
   }, [selectedDate, mentorId]);
 
@@ -119,7 +121,7 @@ export function RequestMentorshipDialog({
     }
 
     // Validate form
-    if (!selectedDate || !selectedTime || !sessionType || !message.trim()) {
+    if (!selectedDate || !selectedStartTime || !selectedEndTime || !sessionType || !message.trim()) {
       toast.error("Please fill in all fields", {
         description: "All fields are required to submit a mentorship request"
       });
@@ -145,7 +147,8 @@ export function RequestMentorshipDialog({
         status: "pending",
         message: message,
         preferred_date: selectedDate.toISOString().split('T')[0], // Use ISO string for consistency
-        preferred_time: selectedTime,
+        preferred_time: selectedStartTime,
+        end_time: selectedEndTime,
         mentorship_type: sessionType,
         session_id: null // Explicitly null for personal mentorship
       };
@@ -159,7 +162,8 @@ export function RequestMentorshipDialog({
 
         // Reset form
         setSelectedDate(undefined);
-        setSelectedTime("");
+        setSelectedStartTime("");
+        setSelectedEndTime("");
         setSessionType("");
         setMessage("");
         onOpenChange(false);
@@ -196,15 +200,60 @@ export function RequestMentorshipDialog({
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
               <SelectContent className="border-primary/20">
-                <SelectItem value="career-guidance">Career Guidance</SelectItem>
-                <SelectItem value="technical-mentorship">Technical Mentorship</SelectItem>
-                <SelectItem value="interview-prep">Interview Preparation</SelectItem>
-                <SelectItem value="code-review">Code Review</SelectItem>
-                <SelectItem value="project-feedback">Project Feedback</SelectItem>
-                <SelectItem value="resume-review">Resume Review</SelectItem>
-                <SelectItem value="general">General Discussion</SelectItem>
+                <SelectItem value="intro-call">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Introductory Call</span>
+                    <span className="text-xs text-muted-foreground">30 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="consultation">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Consultation Session</span>
+                    <span className="text-xs text-muted-foreground">60 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="document-review">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Document/Portfolio Review</span>
+                    <span className="text-xs text-muted-foreground">45 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="mock-practice">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Mock Session / Practice</span>
+                    <span className="text-xs text-muted-foreground">60 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="strategy-planning">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Strategy & Planning</span>
+                    <span className="text-xs text-muted-foreground">60 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="hourly-session">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Hourly 1:1 Session</span>
+                    <span className="text-xs text-muted-foreground">60 min</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="general">
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>General Discussion</span>
+                    <span className="text-xs text-muted-foreground">30-60 min</span>
+                  </div>
+                </SelectItem>
               </SelectContent>
             </Select>
+            {sessionType && mentorProfile?.sessionPricing && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                <span className="font-medium text-primary">
+                  Estimated: ${sessionType === 'intro-call' ? Math.round(mentorProfile.sessionPricing * 0.5) :
+                    sessionType === 'document-review' ? Math.round(mentorProfile.sessionPricing * 0.75) :
+                      mentorProfile.sessionPricing}
+                </span>
+                <span>(based on mentor's hourly rate)</span>
+              </p>
+            )}
           </div>
 
           {/* Preferred Date */}
@@ -233,38 +282,126 @@ export function RequestMentorshipDialog({
             </Popover>
           </div>
 
-          {/* Preferred Time */}
-          <div className="space-y-2">
-            <Label htmlFor="time" className="text-foreground flex justify-between items-center">
-              <span>Preferred Time *</span>
+          {/* Session Time */}
+          <div className="space-y-3">
+            <Label className="text-foreground flex justify-between items-center">
+              <span>Session Time *</span>
               {selectedDate && !isLoadingProfile && availableSlots.length === 0 && (
                 <span className="text-[10px] bg-destructive/10 text-destructive px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                   Not Available on this day
                 </span>
               )}
             </Label>
-            <Select
-              value={selectedTime}
-              onValueChange={setSelectedTime}
-              disabled={!selectedDate || availableSlots.length === 0 || isLoadingProfile}
-            >
-              <SelectTrigger id="time" className="border-border hover:border-primary/50 focus:border-primary transition-colors">
-                <SelectValue placeholder={
-                  isLoadingProfile || isLoadingBookings ? "Loading availability..." :
-                    !selectedDate ? "Pick a date first" :
-                      availableSlots.length === 0 ? "No available slots" : "Select time"
-                } />
-              </SelectTrigger>
-              <SelectContent className="border-primary/20">
-                {availableSlots.map(time => (
-                  <SelectItem key={time} value={time}>{time}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedDate && availableSlots.length > 0 && (
-              <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-1">
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Start Time */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Start Time</Label>
+                <Select
+                  value={selectedStartTime}
+                  onValueChange={(time: string) => {
+                    setSelectedStartTime(time);
+                    setSelectedEndTime(""); // Reset end time when start changes
+                  }}
+                  disabled={!selectedDate || availableSlots.length === 0 || isLoadingProfile}
+                >
+                  <SelectTrigger className="border-border hover:border-primary/50 focus:border-primary transition-colors">
+                    <SelectValue placeholder={
+                      isLoadingProfile || isLoadingBookings ? "Loading..." :
+                        !selectedDate ? "Pick date first" :
+                          availableSlots.length === 0 ? "No slots" : "Start time"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent className="border-primary/20">
+                    {availableSlots.slice(0, -1).map(time => (
+                      <SelectItem key={time} value={time}>{time}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* End Time */}
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">End Time</Label>
+                <Select
+                  value={selectedEndTime}
+                  onValueChange={setSelectedEndTime}
+                  disabled={!selectedStartTime || availableSlots.length === 0}
+                >
+                  <SelectTrigger className="border-border hover:border-primary/50 focus:border-primary transition-colors">
+                    <SelectValue placeholder={!selectedStartTime ? "Select start first" : "End time"} />
+                  </SelectTrigger>
+                  <SelectContent className="border-primary/20">
+                    {availableSlots
+                      .filter(time => {
+                        const startIndex = availableSlots.indexOf(selectedStartTime);
+                        const timeIndex = availableSlots.indexOf(time);
+                        return timeIndex > startIndex;
+                      })
+                      .map(time => (
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Duration & Pricing Display */}
+            {selectedStartTime && selectedEndTime && (
+              <div className="p-3 bg-primary/5 rounded-xl border border-primary/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      Session Duration: {(() => {
+                        const startIndex = availableSlots.indexOf(selectedStartTime);
+                        const endIndex = availableSlots.indexOf(selectedEndTime);
+                        const hours = endIndex - startIndex;
+                        return `${hours} hour${hours > 1 ? 's' : ''}`;
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                {mentorProfile?.sessionPricing && (
+                  <div className="pt-2 border-t border-primary/10">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Hourly Rate: ${mentorProfile.sessionPricing}/hr
+                      </span>
+                      <span className="text-muted-foreground">
+                        × {(() => {
+                          const startIndex = availableSlots.indexOf(selectedStartTime);
+                          const endIndex = availableSlots.indexOf(selectedEndTime);
+                          return endIndex - startIndex;
+                        })()} hours
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="font-semibold text-foreground">Total Session Cost:</span>
+                      <span className="text-lg font-bold text-primary">
+                        ${(() => {
+                          const startIndex = availableSlots.indexOf(selectedStartTime);
+                          const endIndex = availableSlots.indexOf(selectedEndTime);
+                          const hours = endIndex - startIndex;
+                          const mentorPayout = mentorProfile.sessionPricing * hours;
+                          // Add 20% platform fee
+                          return Math.round(mentorPayout * 1.2);
+                        })()}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Includes 20% platform fee
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedDate && availableSlots.length > 0 && !selectedStartTime && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="w-3 h-3 text-primary" />
-                Available from {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.startTime} to {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.endTime}
+                Available: {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.startTime} - {mentorProfile?.availability?.[["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][selectedDate.getDay()]]?.endTime}
               </p>
             )}
           </div>

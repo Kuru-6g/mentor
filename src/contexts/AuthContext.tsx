@@ -29,35 +29,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     mounted.current = true;
     let authSubscription: { unsubscribe: () => void } | null = null;
-    let initTimer: NodeJS.Timeout;
 
     const initialize = async () => {
       try {
         setLoading(true);
 
-        // Safety timeout
-        initTimer = setTimeout(() => {
-          if (mounted.current) {
-            console.warn("Auth initialization safety timeout reached.");
-            setLoading(false);
-          }
-        }, 5000); // Reduce to 5 seconds
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
 
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        // Handle AbortError gracefully — this happens during React Strict Mode
+        // double-mounting or fast navigation. It's non-fatal.
+        if (error) {
+          console.warn('getSession returned error (non-fatal):', error.message);
+        }
 
         if (mounted.current) {
-          setSession(initialSession);
-          sessionRef.current = initialSession;
+          setSession(initialSession ?? null);
+          sessionRef.current = initialSession ?? null;
           if (initialSession?.user) {
             await fetchUserProfile(initialSession.user.id);
           }
         }
-      } catch (error) {
-        console.error('Auth initialization error:', error);
+      } catch (error: any) {
+        // AbortError is expected during Strict Mode remounts — not a real failure
+        if (error?.name === 'AbortError') {
+          console.warn('Auth init aborted (likely Strict Mode remount) — safe to ignore.');
+        } else {
+          console.error('Auth initialization error:', error);
+        }
       } finally {
         if (mounted.current) {
           setLoading(false);
-          clearTimeout(initTimer);
         }
       }
     };
@@ -69,18 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, currentSession) => {
         if (!mounted.current) return;
 
-        console.log('Auth state changed:', event, !!currentSession);
-
-        // Safety timeout for this specific event transition
-        const transitionTimer = setTimeout(() => {
-          if (mounted.current) setLoading(false);
-        }, 5000);
-
         // If we have a new user session, set loading immediately before updating state
         // ONLY if we don't already have one to avoid unmounting components during transitions
         if (currentSession?.user && !userRef.current) {
           if (logoutPendingRef.current) {
-            console.log('Ignoring SIGNED_IN event because a logout is pending');
             return;
           }
           setLoading(true);
@@ -95,13 +88,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           if (mounted.current) {
             setLoading(false);
-            clearTimeout(transitionTimer);
           }
         } else if (!currentSession) {
           setUser(null);
           userRef.current = null;
           setLoading(false);
-          clearTimeout(transitionTimer);
         }
       }
     );
@@ -110,7 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted.current = false;
-      if (initTimer) clearTimeout(initTimer);
       authSubscription?.unsubscribe();
     };
   }, []);

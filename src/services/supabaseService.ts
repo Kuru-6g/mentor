@@ -18,7 +18,6 @@ export interface UserProfile {
   location?: string;
   linkedin?: string; // was linkedin_url
   github?: string; // was github_url
-  twitter?: string; // was twitter_url
   website?: string; // was website_url
   monthlyPricing?: number; // was monthly_pricing
   sessionPricing?: number; // was session_pricing
@@ -82,6 +81,20 @@ export interface SessionRequest {
   message?: string;
   mentorMessage?: string;
   meetingUrl?: string;
+}
+
+export interface SessionService {
+  id: string;
+  mentorId: string;
+  title: string;
+  description?: string;
+  durationMinutes: number;
+  mentorPayout: number;   // What mentor earns
+  displayPrice: number;    // What mentee pays (payout + platform fee)
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const supabaseService = {
@@ -158,7 +171,6 @@ export const supabaseService = {
       location: m.location,
       linkedin: m.linkedin_url,
       github: m.github_url,
-      twitter: m.twitter_url,
       website: m.website_url,
       monthlyPricing: m.monthly_pricing,
       sessionPricing: m.session_pricing,
@@ -189,7 +201,6 @@ export const supabaseService = {
       location: profile.location,
       linkedin_url: profile.linkedin,
       github_url: profile.github,
-      twitter_url: profile.twitter,
       website_url: profile.website,
       monthly_pricing: profile.monthlyPricing,
       session_pricing: profile.sessionPricing,
@@ -257,7 +268,6 @@ export const supabaseService = {
       location: updates.location,
       linkedin_url: updates.linkedin,
       github_url: updates.github,
-      twitter_url: updates.twitter,
       website_url: updates.website,
       monthly_pricing: updates.monthlyPricing,
       session_pricing: updates.sessionPricing,
@@ -686,6 +696,146 @@ export const supabaseService = {
       toast.error(error.message);
       return null;
     }
+  },
+
+  // ==========================================
+  // Session Services (One-Off Sessions) CRUD
+  // ==========================================
+
+  async getSessionServices(mentorId: string): Promise<SessionService[]> {
+    const { data, error } = await supabase
+      .from(tables.session_services)
+      .select('*')
+      .eq('mentor_id', mentorId)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching session services:', error);
+      return [];
+    }
+
+    return (data || []).map((s: any) => ({
+      id: s.id,
+      mentorId: s.mentor_id,
+      title: s.title,
+      description: s.description,
+      durationMinutes: s.duration_minutes,
+      mentorPayout: s.mentor_payout,
+      displayPrice: s.display_price,
+      isActive: s.is_active,
+      sortOrder: s.sort_order,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    }));
+  },
+
+  async getActiveSessionServices(mentorId: string): Promise<SessionService[]> {
+    const { data, error } = await supabase
+      .from(tables.session_services)
+      .select('*')
+      .eq('mentor_id', mentorId)
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching active session services:', error);
+      return [];
+    }
+
+    return (data || []).map((s: any) => ({
+      id: s.id,
+      mentorId: s.mentor_id,
+      title: s.title,
+      description: s.description,
+      durationMinutes: s.duration_minutes,
+      mentorPayout: s.mentor_payout,
+      displayPrice: s.display_price,
+      isActive: s.is_active,
+      sortOrder: s.sort_order,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    }));
+  },
+
+  async createSessionService(service: Partial<SessionService>): Promise<SessionService | null> {
+    const dbService = {
+      mentor_id: service.mentorId,
+      title: service.title,
+      description: service.description,
+      duration_minutes: service.durationMinutes || 60,
+      mentor_payout: service.mentorPayout || 0,
+      display_price: service.displayPrice || 0,
+      is_active: service.isActive ?? true,
+      sort_order: service.sortOrder || 0,
+    };
+
+    const { data, error } = await supabase
+      .from(tables.session_services)
+      .insert(dbService)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating session service:', error);
+      toast.error('Failed to create session service');
+      return null;
+    }
+
+    toast.success('Session service created!');
+    return {
+      id: data.id,
+      mentorId: data.mentor_id,
+      title: data.title,
+      description: data.description,
+      durationMinutes: data.duration_minutes,
+      mentorPayout: data.mentor_payout,
+      displayPrice: data.display_price,
+      isActive: data.is_active,
+      sortOrder: data.sort_order,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+
+  async updateSessionService(serviceId: string, updates: Partial<SessionService>): Promise<boolean> {
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.durationMinutes !== undefined) dbUpdates.duration_minutes = updates.durationMinutes;
+    if (updates.mentorPayout !== undefined) dbUpdates.mentor_payout = updates.mentorPayout;
+    if (updates.displayPrice !== undefined) dbUpdates.display_price = updates.displayPrice;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
+
+    const { error } = await supabase
+      .from(tables.session_services)
+      .update(dbUpdates)
+      .eq('id', serviceId);
+
+    if (error) {
+      console.error('Error updating session service:', error);
+      toast.error('Failed to update session service');
+      return false;
+    }
+
+    toast.success('Session service updated!');
+    return true;
+  },
+
+  async deleteSessionService(serviceId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from(tables.session_services)
+      .delete()
+      .eq('id', serviceId);
+
+    if (error) {
+      console.error('Error deleting session service:', error);
+      toast.error('Failed to delete session service');
+      return false;
+    }
+
+    toast.success('Session service deleted!');
+    return true;
   },
 };
 
