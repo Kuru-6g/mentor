@@ -16,25 +16,13 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
 
     // If logged in, redirect away from public auth pages
     if (session) {
-        // If profile is complete, always go to dashboard
+        // If profile is complete, go to dashboard based on role
         if (user?.profileCompleted) {
             return <Navigate to={user.role === 'mentor' ? '/dashboard' : '/mentors'} replace />;
         }
 
-        // If profile is INCOMPLETE, check which flow we are in
-        if (location.pathname === '/login') {
-            // After login, skip setup as per user request
-            const target = user?.role === 'mentor' ? '/dashboard' : '/mentors';
-            return <Navigate to={target} replace />;
-        }
-
-        if (location.pathname === '/signup') {
-            // After signup, force setup as per user request
-            return <Navigate to="/profile-setup" replace />;
-        }
-
-        // Fallback for other public pages if any
-        return <Navigate to="/mentors" replace />;
+        // Profile is incomplete or not yet created — send to profile setup
+        return <Navigate to="/profile-setup" replace />;
     }
 
     return <>{children}</>;
